@@ -12,6 +12,7 @@ import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';
 import { SourceCitation } from '../components/common/SourceCitation';
 import { repository } from '../lib/supabase/repository';
+import { useAuth } from '../contexts/AuthContext';
 import { answerRecoveryQuestion } from '../lib/assistant/retrieval';
 import { KnowledgeArticle } from '../types/database';
 
@@ -34,7 +35,8 @@ const SUGGESTED_PROMPTS = [
 
 export const KnowledgeAssistant: React.FC = () => {
   const navigate = useNavigate();
-  const profile = repository.getCurrentProfile();
+  const { profile } = useAuth();
+  const activeProfile = profile || repository.getCurrentProfile();
 
   const [inputQuestion, setInputQuestion] = useState<string>('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);
@@ -47,7 +49,7 @@ export const KnowledgeAssistant: React.FC = () => {
       const articles = await repository.getApprovedKnowledgeArticles();
       setApprovedArticles(articles);
 
-      const history = await repository.getAssistantQuestions(profile.id);
+      const history = await repository.getAssistantQuestions(activeProfile.id);
       if (history.length > 0) {
         const loadedChat: ChatMessage[] = [];
         history.reverse().forEach((q) => {
@@ -87,7 +89,7 @@ export const KnowledgeAssistant: React.FC = () => {
     };
 
     loadKnowledge();
-  }, [profile.id]);
+  }, [activeProfile.id]);
 
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
@@ -128,7 +130,7 @@ export const KnowledgeAssistant: React.FC = () => {
 
       // Save question and answer to persistence layer
       await repository.saveAssistantQuestion({
-        patient_id: profile.id,
+        patient_id: activeProfile.id,
         question: q,
         answer: result.answer,
         source_article_ids: result.sourceArticles.map((a) => a.id),

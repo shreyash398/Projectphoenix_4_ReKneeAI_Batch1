@@ -21,11 +21,13 @@ import { Card } from '../components/common/Card';
 import { Badge } from '../components/common/Badge';
 import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
 import { repository } from '../lib/supabase/repository';
+import { useAuth } from '../contexts/AuthContext';
 import { ExerciseSession, SymptomCheckin } from '../types/database';
 
 export const ProgressHistory: React.FC = () => {
   const navigate = useNavigate();
-  const profile = repository.getCurrentProfile();
+  const { profile } = useAuth();
+  const activeProfile = profile || repository.getCurrentProfile();
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [sessions, setSessions] = useState<ExerciseSession[]>([]);
@@ -36,8 +38,8 @@ export const ProgressHistory: React.FC = () => {
       setIsLoading(true);
       try {
         const [sessList, chkList] = await Promise.all([
-          repository.getExerciseSessions(profile.id),
-          repository.getSymptomCheckins(profile.id),
+          repository.getExerciseSessions(activeProfile.id),
+          repository.getSymptomCheckins(activeProfile.id),
         ]);
         setSessions(sessList);
         setCheckins(chkList);
@@ -48,7 +50,7 @@ export const ProgressHistory: React.FC = () => {
       }
     };
     loadProgress();
-  }, [profile.id]);
+  }, [activeProfile.id]);
 
   if (isLoading) {
     return (

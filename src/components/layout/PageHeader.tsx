@@ -1,18 +1,30 @@
 import React from 'react';
-import { Shield, UserCheck, Stethoscope } from 'lucide-react';
-import { repository } from '../../lib/supabase/repository';
-import { Profile } from '../../types/database';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { Shield, UserCheck, Stethoscope, LogOut } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
-interface PageHeaderProps {
-  currentProfile: Profile;
-  onRoleSwitch: (newProfile: Profile) => void;
-}
+export const PageHeader: React.FC = () => {
+  const { profile, role, switchDemoRole, signOut } = useAuth();
+  const navigate = useNavigate();
+  const location = useLocation();
 
-export const PageHeader: React.FC<PageHeaderProps> = ({ currentProfile, onRoleSwitch }) => {
   const toggleRole = () => {
-    const nextRole = currentProfile.role === 'patient' ? 'clinician' : 'patient';
-    const updated = repository.switchUserRole(nextRole);
-    onRoleSwitch(updated);
+    const nextRole = role === 'patient' ? 'clinician' : 'patient';
+    switchDemoRole(nextRole);
+    if (nextRole === 'clinician') {
+      if (!location.pathname.startsWith('/clinician')) {
+        navigate('/clinician');
+      }
+    } else {
+      if (location.pathname.startsWith('/clinician')) {
+        navigate('/');
+      }
+    }
+  };
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/login');
   };
 
   return (
@@ -34,33 +46,44 @@ export const PageHeader: React.FC<PageHeaderProps> = ({ currentProfile, onRoleSw
           </div>
         </div>
 
-        {/* Demo Role Switcher for Hackathon Judges */}
+        {/* User Persona & Role Controls */}
         <div className="flex items-center gap-2">
-          <div className="text-right hidden xs:block">
-            <p className="text-xs font-semibold text-navy-900 truncate max-w-[150px]">
-              {currentProfile.full_name.split(' (')[0]}
-            </p>
-            <p className="text-[10px] text-slate-subtle capitalize">
-              Role: <span className="font-medium text-teal-calm">{currentProfile.role}</span>
-            </p>
-          </div>
+          {profile && (
+            <div className="text-right hidden xs:block">
+              <p className="text-xs font-semibold text-navy-900 truncate max-w-[150px]">
+                {profile.full_name.split(' (')[0]}
+              </p>
+              <p className="text-[10px] text-slate-subtle capitalize">
+                Role: <span className="font-medium text-teal-calm">{role}</span>
+              </p>
+            </div>
+          )}
 
           <button
             onClick={toggleRole}
             className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-warm-subtle text-navy-900 border border-warm-border hover:bg-white hover:border-teal-calm transition-colors shadow-soft"
             title="Switch demo persona for testing"
           >
-            {currentProfile.role === 'patient' ? (
+            {role === 'patient' ? (
               <>
                 <Stethoscope className="w-3.5 h-3.5 text-teal-calm" />
-                <span>Switch to Clinician</span>
+                <span>Clinician View</span>
               </>
             ) : (
               <>
                 <UserCheck className="w-3.5 h-3.5 text-teal-calm" />
-                <span>Switch to Patient</span>
+                <span>Patient View</span>
               </>
             )}
+          </button>
+
+          <button
+            onClick={handleSignOut}
+            className="p-1.5 text-slate-muted hover:text-navy-900 hover:bg-warm-subtle rounded-lg border border-warm-border transition-colors"
+            title="Sign out"
+            aria-label="Sign out"
+          >
+            <LogOut className="w-3.5 h-3.5" />
           </button>
         </div>
       </div>

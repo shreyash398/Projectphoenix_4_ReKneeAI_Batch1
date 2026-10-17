@@ -16,11 +16,13 @@ import { Badge } from '../components/common/Badge';
 import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
 import { ErrorState } from '../components/common/ErrorState';
 import { repository } from '../lib/supabase/repository';
+import { useAuth } from '../contexts/AuthContext';
 import { RecoveryPlan, PlanExercise, SymptomCheckin, ExerciseSession } from '../types/database';
 
 export const PatientHome: React.FC = () => {
   const navigate = useNavigate();
-  const profile = repository.getCurrentProfile();
+  const { profile } = useAuth();
+  const activeProfile = profile || repository.getCurrentProfile();
 
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -29,11 +31,11 @@ export const PatientHome: React.FC = () => {
   const [recentSessions, setRecentSessions] = useState<ExerciseSession[]>([]);
   const [todayCheckin, setTodayCheckin] = useState<SymptomCheckin | null>(null);
 
-  const loadData = async () => {
+  const loadData = React.useCallback(async () => {
     setIsLoading(true);
     setError(null);
     try {
-      const activePlan = await repository.getRecoveryPlan(profile.id);
+      const activePlan = await repository.getRecoveryPlan(activeProfile.id);
       setPlan(activePlan);
 
       if (activePlan) {
@@ -43,10 +45,10 @@ export const PatientHome: React.FC = () => {
         }
       }
 
-      const sessions = await repository.getExerciseSessions(profile.id);
+      const sessions = await repository.getExerciseSessions(activeProfile.id);
       setRecentSessions(sessions.slice(0, 3));
 
-      const checkins = await repository.getSymptomCheckins(profile.id);
+      const checkins = await repository.getSymptomCheckins(activeProfile.id);
       const isToday = (dateStr: string) => {
         const d = new Date(dateStr);
         const today = new Date();
@@ -64,11 +66,11 @@ export const PatientHome: React.FC = () => {
     } finally {
       setIsLoading(false);
     }
-  };
+  }, [activeProfile.id]);
 
   useEffect(() => {
     loadData();
-  }, [profile.id]);
+  }, [loadData]);
 
   if (isLoading) {
     return (

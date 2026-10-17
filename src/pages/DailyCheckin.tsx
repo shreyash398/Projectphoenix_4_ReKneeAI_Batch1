@@ -12,11 +12,13 @@ import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';
 import { Modal } from '../components/common/Modal';
 import { repository } from '../lib/supabase/repository';
+import { useAuth } from '../contexts/AuthContext';
 import { SymptomCheckin } from '../types/database';
 
 export const DailyCheckin: React.FC = () => {
   const navigate = useNavigate();
-  const profile = repository.getCurrentProfile();
+  const { profile } = useAuth();
+  const activeProfile = profile || repository.getCurrentProfile();
 
   // Form states
   const [painScore, setPainScore] = useState<number>(3);
@@ -37,11 +39,11 @@ export const DailyCheckin: React.FC = () => {
 
   useEffect(() => {
     const loadCheckins = async () => {
-      const list = await repository.getSymptomCheckins(profile.id);
+      const list = await repository.getSymptomCheckins(activeProfile.id);
       setPreviousCheckins(list);
     };
     loadCheckins();
-  }, [profile.id]);
+  }, [activeProfile.id]);
 
   const getPainDescriptor = (val: number) => {
     if (val === 0) return { label: 'No Pain', color: 'text-emerald-600', bg: 'bg-emerald-50' };
@@ -64,7 +66,7 @@ export const DailyCheckin: React.FC = () => {
     setIsSubmitting(true);
     try {
       const checkinData: Omit<SymptomCheckin, 'id' | 'created_at'> = {
-        patient_id: profile.id,
+        patient_id: activeProfile.id,
         pain_score: painScore,
         symptoms: {
           swelling,
@@ -81,7 +83,7 @@ export const DailyCheckin: React.FC = () => {
 
       await repository.saveSymptomCheckin(checkinData);
       setSubmissionSuccess(true);
-      const updated = await repository.getSymptomCheckins(profile.id);
+      const updated = await repository.getSymptomCheckins(activeProfile.id);
       setPreviousCheckins(updated);
     } catch (err) {
       console.error('Failed to submit check-in:', err);

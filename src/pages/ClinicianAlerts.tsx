@@ -15,11 +15,13 @@ import { Badge, BadgeVariant } from '../components/common/Badge';
 import { Modal } from '../components/common/Modal';
 import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
 import { repository } from '../lib/supabase/repository';
+import { useAuth } from '../contexts/AuthContext';
 import { Alert, AlertCategory } from '../types/database';
 
 export const ClinicianAlerts: React.FC = () => {
   const navigate = useNavigate();
-  const profile = repository.getCurrentProfile();
+  const { profile } = useAuth();
+  const activeProfile = profile || repository.getCurrentProfile();
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [alerts, setAlerts] = useState<Alert[]>([]);
@@ -45,7 +47,7 @@ export const ClinicianAlerts: React.FC = () => {
 
   useEffect(() => {
     loadAlerts();
-  }, [profile.id]);
+  }, [activeProfile.id]);
 
   const handleReviewAction = async () => {
     if (!selectedAlert) return;
@@ -54,7 +56,7 @@ export const ClinicianAlerts: React.FC = () => {
       await repository.updateAlertStatus(
         selectedAlert.id,
         'reviewed',
-        profile.id,
+        activeProfile.id,
         actionChoice,
         actionNotes
       );

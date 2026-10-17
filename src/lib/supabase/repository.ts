@@ -416,7 +416,7 @@ export const repository = {
           .eq('clinician_id', clinicianId)
           .eq('status', 'active');
         if (!error && data) {
-          return data.map((d: any) => d.profiles) as Profile[];
+          return (data as unknown as { profiles: Profile }[]).map((d) => d.profiles);
         }
       } catch (err) {
         console.warn('Supabase query error:', err);

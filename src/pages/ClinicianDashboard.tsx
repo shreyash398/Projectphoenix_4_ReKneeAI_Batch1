@@ -10,11 +10,13 @@ import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';
 import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
 import { repository } from '../lib/supabase/repository';
+import { useAuth } from '../contexts/AuthContext';
 import { Profile, Alert, RecoveryPlan, SymptomCheckin, ExerciseSession } from '../types/database';
 
 export const ClinicianDashboard: React.FC = () => {
   const navigate = useNavigate();
-  const profile = repository.getCurrentProfile();
+  const { profile } = useAuth();
+  const activeProfile = profile || repository.getCurrentProfile();
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [patients, setPatients] = useState<Profile[]>([]);
@@ -28,7 +30,7 @@ export const ClinicianDashboard: React.FC = () => {
       setIsLoading(true);
       try {
         const [authPatients, allAlerts] = await Promise.all([
-          repository.getClinicianAuthorizedPatients(profile.id),
+          repository.getClinicianAuthorizedPatients(activeProfile.id),
           repository.getAlerts(),
         ]);
         setPatients(authPatients);
@@ -53,7 +55,7 @@ export const ClinicianDashboard: React.FC = () => {
     };
 
     loadClinicianData();
-  }, [profile.id]);
+  }, [activeProfile.id]);
 
   if (isLoading) {
     return (

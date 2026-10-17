@@ -16,11 +16,13 @@ import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';
 import { Modal } from '../components/common/Modal';
 import { repository } from '../lib/supabase/repository';
+import { useAuth } from '../contexts/AuthContext';
 import { PlanExercise, ExerciseSession } from '../types/database';
 
 export const ExerciseCoach: React.FC = () => {
   const navigate = useNavigate();
-  const profile = repository.getCurrentProfile();
+  const { profile } = useAuth();
+  const activeProfile = profile || repository.getCurrentProfile();
 
   // Exercise details
   const [exercise, setExercise] = useState<PlanExercise | null>(null);
@@ -52,7 +54,7 @@ export const ExerciseCoach: React.FC = () => {
   // Load plan exercise
   useEffect(() => {
     const loadExercise = async () => {
-      const plan = await repository.getRecoveryPlan(profile.id);
+      const plan = await repository.getRecoveryPlan(activeProfile.id);
       if (plan) {
         const exercises = await repository.getPlanExercises(plan.id);
         if (exercises.length > 0) {
@@ -61,7 +63,7 @@ export const ExerciseCoach: React.FC = () => {
       }
     };
     loadExercise();
-  }, [profile.id]);
+  }, [activeProfile.id]);
 
   // Cleanup camera stream
   const stopCameraStream = useCallback(() => {
@@ -233,7 +235,7 @@ export const ExerciseCoach: React.FC = () => {
     const mode = manualFallbackMode ? 'manual_demo' : 'camera_prototype';
 
     const sessionData: Omit<ExerciseSession, 'id' | 'created_at'> = {
-      patient_id: profile.id,
+      patient_id: activeProfile.id,
       plan_exercise_id: exercise?.id || 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
       started_at: new Date(startTimeRef.current || Date.now() - finalDuration * 1000).toISOString(),
       ended_at: new Date().toISOString(),
