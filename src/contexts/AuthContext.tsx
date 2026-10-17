@@ -1,18 +1,23 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { User, Session } from '@supabase/supabase-js';
 import { supabase, isSupabaseConfigured } from '../lib/supabase/client';
 import { Profile, UserRole } from '../types/database';
 import { repository } from '../lib/supabase/repository';
+import { DEMO_PATIENT_ID, DEMO_CLINICIAN_ID } from '../lib/supabase/mockStore';
 
 interface AuthContextType {
   user: User | null;
   session: Session | null;
   profile: Profile | null;
   role: UserRole;
+  isAuthenticated: boolean;
   isLoading: boolean;
+  authError: string | null;
   signIn: (email: string, password?: string) => Promise<{ error: Error | null }>;
   signOut: () => Promise<void>;
   switchDemoRole: (newRole: UserRole) => void;
+  simulateSessionExpired: () => void;
+  clearAuthError: () => void;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -20,47 +25,11 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<Session | null>(null);
-  const [profile, setProfile] = useState<Profile | null>(() => repository.getCurrentProfile());
+  const [profile, setProfile] = useState<Profile | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [authError, setAuthError] = useState<string | null>(null);
 
-  useEffect(() => {
-    if (isSupabaseConfigured && supabase) {
-      // 1. Fetch current active session from Supabase
-      supabase.auth.getSession().then(({ data: { session } }) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          loadProfile(session.user.id);
-        } else {
-          setIsLoading(false);
-        }
-      });
-
-      // 2. Listen to ongoing auth changes (login, logout, token refresh)
-      const {
-        data: { subscription },
-      } = supabase.auth.onAuthStateChange((_event, session) => {
-        setSession(session);
-        setUser(session?.user ?? null);
-        if (session?.user) {
-          loadProfile(session.user.id);
-        } else {
-          setProfile(null);
-          setIsLoading(false);
-        }
-      });
-
-      return () => {
-        subscription.unsubscribe();
-      };
-    } else {
-      // Offline / Demo fallback: profile initialized from repository
-      setProfile(repository.getCurrentProfile());
-      setIsLoading(false);
-    }
-  }, []);
-
-  const loadProfile = async (userId: string) => {
+  const loadProfile = useCallback(async (userId: string) => {
     if (!supabase) return;
     try {
       const { data, error } = await supabase
@@ -72,7 +41,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (!error && data) {
         setProfile(data as Profile);
       } else {
-        // Fallback to local profile structure if not yet in database
         setProfile(repository.getCurrentProfile());
       }
     } catch (err) {
@@ -81,33 +49,128 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       setIsLoading(false);
     }
-  };
+  }, []);
 
-  const signIn = async (email: string, password?: string) => {
+  useEffect(() => {
     if (isSupabaseConfigured && supabase) {
-      if (password) {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        return { error };
-      } else {
-        const { error } = await supabase.auth.signInWithOtp({ email });
+      // 1. Fetch current active session from Supabase
+      supabase.auth.getSession().then(({ data: { session }, error }) => {
+        if (error) {
+          setAuthError('Session expired or invalid. Please sign in again.');
+          setIsLoading(false);
+          return;
+        }
+
+        setSession(session);
+        setUser(session?.user ?? null);
+        if (session?.user) {
+          loadProfile(session.user.id);
+        } else {
+          setIsLoading(false);
+        }
+      });
+
+      // 2. Listen to ongoing auth changes (login, logout, token refresh, token expired)
+      const {
+        data: { subscription },
+      } = supabase.auth.onAuthStateChange((event, newSession) => {
+        if (event === 'SIGNED_OUT') {
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          setIsLoading(false);
+        } else if (event === 'TOKEN_REFRESHED' && !newSession) {
+          // Token refresh failure = expired session
+          setSession(null);
+          setUser(null);
+          setProfile(null);
+          setAuthError('Your session has expired. Please sign in again.');
+          setIsLoading(false);
+        } else if (newSession) {
+          setSession(newSession);
+          setUser(newSession.user);
+          loadProfile(newSession.user.id);
+        }
+      });
+
+      return () => {
+        subscription.unsubscribe();
+      };
+    } else {
+      // Offline / Demo fallback: Check if demo store has an active user session
+      const current = repository.getCurrentProfile();
+      setProfile(current);
+      setIsLoading(false);
+    }
+  }, [loadProfile]);
+
+  const signIn = async (email: string, password?: string): Promise<{ error: Error | null }> => {
+    setIsLoading(true);
+    setAuthError(null);
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        if (password) {
+          const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+          if (error) {
+            setIsLoading(false);
+            setAuthError(error.message);
+            return { error };
+          }
+          setSession(data.session);
+          setUser(data.user);
+          await loadProfile(data.user.id);
+          return { error: null };
+        } else {
+          const { error } = await supabase.auth.signInWithOtp({ email });
+          setIsLoading(false);
+          if (error) {
+            setAuthError(error.message);
+            return { error };
+          }
+          return { error: null };
+        }
+      } catch (err) {
+        setIsLoading(false);
+        const error = err instanceof Error ? err : new Error('Authentication failed');
+        setAuthError(error.message);
         return { error };
       }
     }
 
-    // Demo / Offline sign-in handling
-    const role: UserRole = email.includes('clinician') ? 'clinician' : 'patient';
-    const updated = repository.switchUserRole(role);
-    setProfile(updated);
-    return { error: null };
+    // Demo / Offline Mode Sign-In
+    const trimmedEmail = email.toLowerCase().trim();
+    if (trimmedEmail.includes('clinician')) {
+      const p = repository.setActiveUserId(DEMO_CLINICIAN_ID);
+      setProfile(p);
+      setIsLoading(false);
+      return { error: null };
+    } else if (trimmedEmail.includes('patient') || trimmedEmail.length > 0) {
+      const p = repository.setActiveUserId(DEMO_PATIENT_ID);
+      setProfile(p);
+      setIsLoading(false);
+      return { error: null };
+    }
+
+    setIsLoading(false);
+    return { error: new Error('Invalid email or password.') };
   };
 
   const signOut = async () => {
+    setIsLoading(true);
     if (isSupabaseConfigured && supabase) {
-      await supabase.auth.signOut();
+      try {
+        await supabase.auth.signOut();
+      } catch (err) {
+        console.warn('Error during Supabase signOut:', err);
+      }
     }
+    repository.signOut();
     setUser(null);
     setSession(null);
     setProfile(null);
+    setAuthError(null);
+    setIsLoading(false);
   };
 
   const switchDemoRole = (newRole: UserRole) => {
@@ -115,7 +178,20 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setProfile(updated);
   };
 
+  const simulateSessionExpired = () => {
+    repository.signOut();
+    setUser(null);
+    setSession(null);
+    setProfile(null);
+    setAuthError('Your session has expired. Please sign in to continue.');
+  };
+
+  const clearAuthError = () => {
+    setAuthError(null);
+  };
+
   const role: UserRole = profile?.role ?? 'patient';
+  const isAuthenticated = Boolean(profile || session);
 
   return (
     <AuthContext.Provider
@@ -124,10 +200,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         session,
         profile,
         role,
+        isAuthenticated,
         isLoading,
+        authError,
         signIn,
         signOut,
         switchDemoRole,
+        simulateSessionExpired,
+        clearAuthError,
       }}
     >
       {children}

@@ -18,7 +18,7 @@ import { SymptomCheckin } from '../types/database';
 export const DailyCheckin: React.FC = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const activeProfile = profile || repository.getCurrentProfile();
+  const activeProfile = profile || repository.getGuaranteedProfile();
 
   // Form states
   const [painScore, setPainScore] = useState<number>(3);

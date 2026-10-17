@@ -1,12 +1,22 @@
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
-import { ShieldAlert, ArrowLeft, Home } from 'lucide-react';
+import { useNavigate, useLocation } from 'react-router-dom';
+import { ShieldAlert, ArrowLeft, Home, LogIn } from 'lucide-react';
 import { Button } from '../components/common/Button';
+import { Badge } from '../components/common/Badge';
 import { useAuth } from '../contexts/AuthContext';
 
 export const ForbiddenPage: React.FC = () => {
   const navigate = useNavigate();
-  const { role } = useAuth();
+  const location = useLocation();
+  const { role, signOut } = useAuth();
+
+  const state = location.state as { requiredRole?: string; userRole?: string } | null;
+  const requiredRole = state?.requiredRole || (role === 'patient' ? 'clinician' : 'patient');
+
+  const handleSwitchAccount = async () => {
+    await signOut();
+    navigate('/login');
+  };
 
   return (
     <div className="min-h-screen bg-warm-bg flex items-center justify-center p-4">
@@ -16,30 +26,55 @@ export const ForbiddenPage: React.FC = () => {
         </div>
 
         <div>
-          <h1 className="text-lg font-bold text-navy-900">403 — Restricted Area</h1>
-          <p className="text-xs text-slate-muted mt-1 leading-relaxed">
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <h1 className="text-lg font-bold text-navy-900">403 — Restricted Area</h1>
+            <Badge variant="warning" size="sm">
+              Unauthorized
+            </Badge>
+          </div>
+          <p className="text-xs text-slate-muted leading-relaxed">
             You do not have permission to view this section with your current{' '}
-            <strong className="text-navy-900 font-semibold">{role}</strong> role. Clinician routes require clinical provider authorization.
+            <strong className="text-navy-900 font-semibold">{role || 'unassigned'}</strong> role.
+            This area requires an authorized{' '}
+            <strong className="text-navy-900 font-semibold">{requiredRole}</strong> account.
           </p>
         </div>
 
-        <div className="pt-2 flex flex-col sm:flex-row gap-2 justify-center">
+        <div className="p-3 bg-warm-subtle rounded-xl border border-warm-border text-left text-xs text-slate-muted">
+          <span className="font-semibold text-navy-900 block mb-0.5">Clinical Authorization Notice:</span>
+          Under healthcare access controls, clinician oversight routes are strictly isolated from patient views, and patient exercise logging is restricted to verified recovery plan holders.
+        </div>
+
+        <div className="pt-2 flex flex-col gap-2">
           <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate(-1)}
-            icon={<ArrowLeft className="w-3.5 h-3.5" />}
-          >
-            Go Back
-          </Button>
-          <Button
+            fullWidth
             variant="primary"
-            size="sm"
             onClick={() => navigate(role === 'clinician' ? '/clinician' : '/')}
-            icon={<Home className="w-3.5 h-3.5" />}
+            icon={<Home className="w-4 h-4" />}
           >
             Go to {role === 'clinician' ? 'Clinician Dashboard' : 'Patient Home'}
           </Button>
+
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={() => navigate(-1)}
+              icon={<ArrowLeft className="w-3.5 h-3.5" />}
+            >
+              Go Back
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              className="flex-1"
+              onClick={handleSwitchAccount}
+              icon={<LogIn className="w-3.5 h-3.5" />}
+            >
+              Switch Account
+            </Button>
+          </div>
         </div>
       </div>
     </div>

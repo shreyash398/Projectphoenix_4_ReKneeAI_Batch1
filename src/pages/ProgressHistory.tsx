@@ -27,7 +27,7 @@ import { ExerciseSession, SymptomCheckin } from '../types/database';
 export const ProgressHistory: React.FC = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const activeProfile = profile || repository.getCurrentProfile();
+  const activeProfile = profile || repository.getGuaranteedProfile();
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [sessions, setSessions] = useState<ExerciseSession[]>([]);

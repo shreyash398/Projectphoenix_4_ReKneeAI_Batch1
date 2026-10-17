@@ -21,7 +21,7 @@ import { Alert, AlertCategory } from '../types/database';
 export const ClinicianAlerts: React.FC = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const activeProfile = profile || repository.getCurrentProfile();
+  const activeProfile = profile || repository.getGuaranteedProfile();
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [alerts, setAlerts] = useState<Alert[]>([]);

@@ -37,7 +37,7 @@ export const KnowledgeAssistant: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { profile } = useAuth();
-  const activeProfile = profile || repository.getCurrentProfile();
+  const activeProfile = profile || repository.getGuaranteedProfile();
 
   const [inputQuestion, setInputQuestion] = useState<string>('');
   const [messages, setMessages] = useState<ChatMessage[]>([]);

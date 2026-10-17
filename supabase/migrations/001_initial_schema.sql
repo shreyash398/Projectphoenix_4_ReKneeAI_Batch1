@@ -37,6 +37,25 @@ create trigger set_profiles_updated_at
   before update on profiles
   for each row execute function update_updated_at_column();
 
+-- Security trigger: Prevent client from tampering with/updating the role column on profiles
+create or replace function prevent_profile_role_change()
+returns trigger
+language plpgsql
+security definer
+as $$
+begin
+  if new.role is distinct from old.role then
+    raise exception 'Changing user role is not permitted.';
+  end if;
+  return new;
+end;
+$$;
+
+drop trigger if exists prevent_role_spoofing on profiles;
+create trigger prevent_role_spoofing
+  before update on profiles
+  for each row execute function prevent_profile_role_change();
+
 -- ============================================================================
 -- 2. RECOVERY PLANS
 -- ============================================================================

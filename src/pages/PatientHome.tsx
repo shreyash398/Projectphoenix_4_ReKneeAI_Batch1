@@ -36,7 +36,7 @@ import {
 export const PatientHome: React.FC = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const activeProfile = profile || repository.getCurrentProfile();
+  const activeProfile = profile || repository.getGuaranteedProfile();
 
   // State
   const [isLoading, setIsLoading] = useState<boolean>(true);

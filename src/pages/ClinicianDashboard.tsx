@@ -16,7 +16,7 @@ import { Profile, Alert, RecoveryPlan, SymptomCheckin, ExerciseSession } from '.
 export const ClinicianDashboard: React.FC = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const activeProfile = profile || repository.getCurrentProfile();
+  const activeProfile = profile || repository.getGuaranteedProfile();
 
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [patients, setPatients] = useState<Profile[]>([]);

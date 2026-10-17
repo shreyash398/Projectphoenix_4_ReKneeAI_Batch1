@@ -22,7 +22,7 @@ import { PlanExercise, ExerciseSession } from '../types/database';
 export const ExerciseCoach: React.FC = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
-  const activeProfile = profile || repository.getCurrentProfile();
+  const activeProfile = profile || repository.getGuaranteedProfile();
 
   // Exercise details
   const [exercise, setExercise] = useState<PlanExercise | null>(null);

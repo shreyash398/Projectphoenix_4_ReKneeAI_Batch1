@@ -1,5 +1,6 @@
 // ReKnee AI - Unified Repository Service
 // Connects to live Supabase with fallback to resilient demo store
+// Strictly enforces patient data isolation and authorized clinician access matching 04_DATABASE.md and 11_AUTH_AUTHORIZATION.md
 
 import {
   Profile,
@@ -23,11 +24,16 @@ import { evaluateCheckinAlert, evaluateSessionAlert, isDuplicateAlert } from '..
 
 export const repository = {
   // Current active user simulation
-  getCurrentProfile(): Profile {
+  getCurrentProfile(): Profile | null {
     const store = getStore();
+    if (!store.activeUserId) return null;
     const profile = store.profiles.find((p) => p.id === store.activeUserId);
+    return profile || null;
+  },
+
+  getGuaranteedProfile(): Profile {
     return (
-      profile || {
+      this.getCurrentProfile() || {
         id: DEMO_PATIENT_ID,
         full_name: 'Eleanor Vance (Demo Patient)',
         role: 'patient',
@@ -37,14 +43,49 @@ export const repository = {
     );
   },
 
-  switchUserRole(role: UserRole): Profile {
+  setActiveUserId(userId: string): Profile | null {
     const store = getStore();
-    store.activeUserId = role === 'clinician' ? DEMO_CLINICIAN_ID : DEMO_PATIENT_ID;
+    store.activeUserId = userId;
     saveStore(store);
     return this.getCurrentProfile();
   },
 
+  signOut(): void {
+    const store = getStore();
+    store.activeUserId = '';
+    saveStore(store);
+  },
+
+  switchUserRole(role: UserRole): Profile {
+    const store = getStore();
+    store.activeUserId = role === 'clinician' ? DEMO_CLINICIAN_ID : DEMO_PATIENT_ID;
+    saveStore(store);
+    return this.getCurrentProfile()!;
+  },
+
+  // Helper: Verify if clinician has active access to patient
+  isClinicianAuthorizedForPatient(clinicianId: string, patientId: string): boolean {
+    const store = getStore();
+    return store.access.some(
+      (a) => a.clinician_id === clinicianId && a.patient_id === patientId && a.status === 'active'
+    );
+  },
+
   async getRecoveryPlan(patientId: string): Promise<RecoveryPlan | null> {
+    const current = this.getCurrentProfile();
+    // Deny unauthenticated access
+    if (!current) return null;
+    // Patient ownership check
+    if (current.role === 'patient' && current.id !== patientId) {
+      console.warn('Security Notice: Patient cannot access another patient recovery plan.');
+      return null;
+    }
+    // Clinician authorization check
+    if (current.role === 'clinician' && !this.isClinicianAuthorizedForPatient(current.id, patientId)) {
+      console.warn('Security Notice: Clinician is not authorized for patient recovery plan.');
+      return null;
+    }
+
     if (isSupabaseConfigured && supabase) {
       try {
         const { data, error } = await supabase
@@ -86,6 +127,12 @@ export const repository = {
   async saveExerciseSession(
     sessionData: Omit<ExerciseSession, 'id' | 'created_at'>
   ): Promise<ExerciseSession> {
+    const current = this.getCurrentProfile();
+    // Security restriction: Patients can only submit sessions for themselves
+    if (current && current.role === 'patient' && sessionData.patient_id !== current.id) {
+      throw new Error('Unauthorized: Patients can only record exercise sessions for themselves.');
+    }
+
     const id = 'sess-' + Date.now();
     const created_at = new Date().toISOString();
     const newSession: ExerciseSession = { ...sessionData, id, created_at };
@@ -146,6 +193,20 @@ export const repository = {
   },
 
   async getExerciseSessions(patientId: string): Promise<ExerciseSession[]> {
+    const current = this.getCurrentProfile();
+    // Deny unauthenticated access
+    if (!current) return [];
+    // Security check: Patient can access only their own sessions
+    if (current.role === 'patient' && current.id !== patientId) {
+      console.warn('Security Notice: Patient cannot access another patient’s sessions.');
+      return [];
+    }
+    // Clinician authorization check
+    if (current.role === 'clinician' && !this.isClinicianAuthorizedForPatient(current.id, patientId)) {
+      console.warn('Security Notice: Clinician is not authorized for patient sessions.');
+      return [];
+    }
+
     if (isSupabaseConfigured && supabase) {
       try {
         const { data, error } = await supabase
@@ -167,6 +228,12 @@ export const repository = {
   async saveSymptomCheckin(
     checkinData: Omit<SymptomCheckin, 'id' | 'created_at'>
   ): Promise<SymptomCheckin> {
+    const current = this.getCurrentProfile();
+    // Security restriction: Patients can only submit check-ins for themselves
+    if (current && current.role === 'patient' && checkinData.patient_id !== current.id) {
+      throw new Error('Unauthorized: Patients can only submit symptom check-ins for themselves.');
+    }
+
     const id = 'chk-' + Date.now();
     const created_at = new Date().toISOString();
     const newCheckin: SymptomCheckin = { ...checkinData, id, created_at };
@@ -227,6 +294,20 @@ export const repository = {
   },
 
   async getSymptomCheckins(patientId: string): Promise<SymptomCheckin[]> {
+    const current = this.getCurrentProfile();
+    // Deny unauthenticated access
+    if (!current) return [];
+    // Security check: Patient can access only their own check-ins
+    if (current.role === 'patient' && current.id !== patientId) {
+      console.warn('Security Notice: Patient cannot access another patient’s check-ins.');
+      return [];
+    }
+    // Clinician authorization check
+    if (current.role === 'clinician' && !this.isClinicianAuthorizedForPatient(current.id, patientId)) {
+      console.warn('Security Notice: Clinician is not authorized for patient check-ins.');
+      return [];
+    }
+
     if (isSupabaseConfigured && supabase) {
       try {
         const { data, error } = await supabase
@@ -265,6 +346,11 @@ export const repository = {
   async saveAssistantQuestion(
     qData: Omit<AssistantQuestion, 'id' | 'created_at'>
   ): Promise<AssistantQuestion> {
+    const current = this.getCurrentProfile();
+    if (current && current.role === 'patient' && qData.patient_id !== current.id) {
+      throw new Error('Unauthorized: Patient cannot submit assistant questions for another user.');
+    }
+
     const id = 'q-' + Date.now();
     const created_at = new Date().toISOString();
     const newQuestion: AssistantQuestion = { ...qData, id, created_at };
@@ -289,6 +375,16 @@ export const repository = {
   },
 
   async getAssistantQuestions(patientId: string): Promise<AssistantQuestion[]> {
+    const current = this.getCurrentProfile();
+    if (current && current.role === 'patient' && current.id !== patientId) {
+      console.warn('Security Notice: Patient cannot access another patient’s questions.');
+      return [];
+    }
+    if (current && current.role === 'clinician' && !this.isClinicianAuthorizedForPatient(current.id, patientId)) {
+      console.warn('Security Notice: Clinician is not authorized for patient questions.');
+      return [];
+    }
+
     if (isSupabaseConfigured && supabase) {
       try {
         const { data, error } = await supabase
@@ -308,19 +404,42 @@ export const repository = {
   },
 
   async getAlerts(patientId?: string): Promise<Alert[]> {
+    const current = this.getCurrentProfile();
+    // Deny unauthenticated access
+    if (!current) return [];
+
     if (isSupabaseConfigured && supabase) {
       try {
         let query = supabase.from('alerts').select('*').order('created_at', { ascending: false });
-        if (patientId) query = query.eq('patient_id', patientId);
+        if (patientId) {
+          query = query.eq('patient_id', patientId);
+        } else if (current && current.role === 'patient') {
+          query = query.eq('patient_id', current.id);
+        }
         const { data, error } = await query;
         if (!error && data) return data as Alert[];
       } catch (err) {
         console.warn('Supabase query error, falling back to local store:', err);
       }
     }
+
     const store = getStore();
     let res = store.alerts;
-    if (patientId) res = res.filter((a) => a.patient_id === patientId);
+
+    // Strict patient isolation
+    if (current && current.role === 'patient') {
+      res = res.filter((a) => a.patient_id === current.id);
+    } else if (current && current.role === 'clinician') {
+      // Clinician only sees authorized patients' alerts
+      const authPatients = store.access
+        .filter((a) => a.clinician_id === current.id && a.status === 'active')
+        .map((a) => a.patient_id);
+      res = res.filter((a) => authPatients.includes(a.patient_id));
+      if (patientId) res = res.filter((a) => a.patient_id === patientId);
+    } else if (patientId) {
+      res = res.filter((a) => a.patient_id === patientId);
+    }
+
     return res.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   },
 
@@ -353,6 +472,12 @@ export const repository = {
     actionText?: string,
     notes?: string
   ): Promise<Alert | null> {
+    const current = this.getCurrentProfile();
+    // Security check: Only clinicians can update alert statuses
+    if (current && current.role !== 'clinician') {
+      throw new Error('Unauthorized: Only clinicians can review or update alerts.');
+    }
+
     const now = new Date().toISOString();
 
     if (isSupabaseConfigured && supabase) {
@@ -386,6 +511,11 @@ export const repository = {
     const store = getStore();
     const alert = store.alerts.find((a) => a.id === alertId);
     if (alert) {
+      // Security check: Clinician must be authorized for this patient
+      if (!this.isClinicianAuthorizedForPatient(clinicianId, alert.patient_id)) {
+        throw new Error('Unauthorized: Clinician is not authorized to act on this patient’s alerts.');
+      }
+
       alert.status = status;
       alert.reviewed_at = now;
       alert.reviewed_by = clinicianId;

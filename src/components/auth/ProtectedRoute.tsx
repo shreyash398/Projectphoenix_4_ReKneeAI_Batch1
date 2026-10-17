@@ -13,7 +13,7 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
   children,
   allowedRole,
 }) => {
-  const { session, profile, role, isLoading } = useAuth();
+  const { isAuthenticated, role, isLoading } = useAuth();
   const location = useLocation();
 
   if (isLoading) {
@@ -24,15 +24,20 @@ export const ProtectedRoute: React.FC<ProtectedRouteProps> = ({
     );
   }
 
-  // If live Supabase session exists or profile exists in demo mode
-  const isAuthenticated = Boolean(session || profile);
-
+  // 1. Unauthenticated check -> Redirect to /login
   if (!isAuthenticated) {
-    return <Navigate to="/login" state={{ from: location }} replace />;
+    return (
+      <Navigate
+        to="/login"
+        state={{ from: location, message: 'Please sign in to access this page.' }}
+        replace
+      />
+    );
   }
 
+  // 2. Role-based authorization guard -> Redirect to /forbidden if unauthorized
   if (allowedRole && role !== allowedRole) {
-    return <Navigate to="/forbidden" replace />;
+    return <Navigate to="/forbidden" state={{ requiredRole: allowedRole, userRole: role }} replace />;
   }
 
   return <>{children}</>;
