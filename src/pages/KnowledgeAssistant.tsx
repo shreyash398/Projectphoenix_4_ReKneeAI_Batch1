@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Send,
   Sparkles,
@@ -35,6 +35,7 @@ const SUGGESTED_PROMPTS = [
 
 export const KnowledgeAssistant: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { profile } = useAuth();
   const activeProfile = profile || repository.getCurrentProfile();
 
@@ -43,6 +44,7 @@ export const KnowledgeAssistant: React.FC = () => {
   const [isThinking, setIsThinking] = useState<boolean>(false);
   const [approvedArticles, setApprovedArticles] = useState<KnowledgeArticle[]>([]);
   const messagesEndRef = useRef<HTMLDivElement | null>(null);
+  const initialParamProcessedRef = useRef<boolean>(false);
 
   useEffect(() => {
     const loadKnowledge = async () => {
@@ -94,6 +96,14 @@ export const KnowledgeAssistant: React.FC = () => {
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
   }, [messages, isThinking]);
+
+  useEffect(() => {
+    const qParam = searchParams.get('q');
+    if (qParam && approvedArticles.length > 0 && !initialParamProcessedRef.current) {
+      initialParamProcessedRef.current = true;
+      handleAsk(qParam);
+    }
+  }, [searchParams, approvedArticles]);
 
   const handleAsk = async (questionText: string) => {
     const q = questionText.trim();
