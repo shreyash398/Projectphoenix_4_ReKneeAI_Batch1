@@ -35,6 +35,9 @@ export default [
         MediaStream: 'readonly',
         KeyboardEvent: 'readonly',
         NodeJS: 'readonly',
+        CanvasRenderingContext2D: 'readonly',
+        performance: 'readonly',
+        __dirname: 'readonly',
       },
     },
     plugins: {
@@ -44,6 +47,7 @@ export default [
     },
     rules: {
       ...tseslint.configs.recommended.rules,
+      'no-undef': 'off',
       'react-hooks/rules-of-hooks': 'error',
       'react-hooks/exhaustive-deps': 'warn',
       'react-refresh/only-export-components': [

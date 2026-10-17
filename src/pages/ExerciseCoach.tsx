@@ -1,96 +1,168 @@
+// ReKnee AI - Camera-Assisted Exercise Coach
+// Strictly adheres to 01_PRD.md, 02_DESIGN.md, 03_ARCHITECTURE.md, 04_DATABASE.md,
+// 09_FEATURE_DEVELOPMENT.md, 13_EXTERNAL_INTEGRATION.md, 14_TESTING_QA.md, and 16_SECURITY_AUDIT.md
+
 import React, { useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   Camera,
   Play,
+  Pause,
   Square,
   RefreshCw,
-  CheckCircle,
-  HelpCircle,
+  CheckCircle2,
+  AlertTriangle,
   ArrowLeft,
   VideoOff,
   Sparkles,
+  ShieldCheck,
+  Info,
+  Sliders,
+  ChevronRight,
+  Eye,
 } from 'lucide-react';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';
 import { Modal } from '../components/common/Modal';
+import { SessionSummary } from '../components/common/SessionSummary';
 import { repository } from '../lib/supabase/repository';
 import { useAuth } from '../contexts/AuthContext';
-import { PlanExercise, ExerciseSession } from '../types/database';
+import { PlanExercise, ExerciseSession, SessionStatus, MeasurementMode } from '../types/database';
+import { PoseLandmarker } from '@mediapipe/tasks-vision';
+import {
+  CameraStatus,
+  ModelStatus,
+  DetectionQuality,
+  RepCounterConfig,
+  RepCounterState,
+  LegLandmarks,
+} from '../features/pose/types';
+import {
+  calculateJointAngle,
+  extractLegLandmarks,
+} from '../features/pose/angleCalculations';
+import {
+  DEFAULT_REP_CONFIG,
+  createInitialRepCounterState,
+  updateRepCounter,
+} from '../features/pose/repCounter';
+import { getPoseLandmarker } from '../features/pose/poseService';
+import { drawPoseOverlay, drawSimulatedOverlay } from '../features/pose/drawing';
 
 export const ExerciseCoach: React.FC = () => {
   const navigate = useNavigate();
   const { profile } = useAuth();
   const activeProfile = profile || repository.getGuaranteedProfile();
 
-  // Exercise details
+  // Prescribed Exercise from Recovery Plan
   const [exercise, setExercise] = useState<PlanExercise | null>(null);
 
-  // Camera & model states
-  const [cameraActive, setCameraActive] = useState<boolean>(false);
-  const [permissionDenied, setPermissionDenied] = useState<boolean>(false);
-  const [modelLoading, setModelLoading] = useState<boolean>(false);
-  const [manualFallbackMode, setManualFallbackMode] = useState<boolean>(false);
+  // Camera & Model State
+  const [cameraStatus, setCameraStatus] = useState<CameraStatus>('idle');
+  const [modelStatus, setModelStatus] = useState<ModelStatus>('idle');
+  const [detectionQuality, setDetectionQuality] = useState<DetectionQuality>('no_pose');
+  const [isManualDemoMode, setIsManualDemoMode] = useState<boolean>(false);
+  const [cameraErrorMessage, setCameraErrorMessage] = useState<string>('');
 
-  // Exercise workout loop states
-  const [isExercising, setIsExercising] = useState<boolean>(false);
-  const [repetitions, setRepetitions] = useState<number>(0);
-  const [durationSeconds, setDurationSeconds] = useState<number>(0);
-  const [kneeAngle, setKneeAngle] = useState<number>(165); // degrees
-  const [movementPhase, setMovementPhase] = useState<'extension' | 'flexing' | 'holding' | 'recovering'>('extension');
-  const [feedbackMessage, setFeedbackMessage] = useState<string>('Align your side profile to the camera');
+  // Workout Session State
+  const [isWorkoutActive, setIsWorkoutActive] = useState<boolean>(false);
+  const [isPaused, setIsPaused] = useState<boolean>(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
+  const [repConfig, setRepConfig] = useState<RepCounterConfig>(DEFAULT_REP_CONFIG);
+  const [repState, setRepState] = useState<RepCounterState>(createInitialRepCounterState());
+  const [trackedSide, setTrackedSide] = useState<'left' | 'right' | 'none'>('none');
 
-  // Completed session modal
+  // Summary & Persistence State
+  const [showSummaryModal, setShowSummaryModal] = useState<boolean>(false);
   const [savedSession, setSavedSession] = useState<ExerciseSession | null>(null);
+  const [isSaving, setIsSaving] = useState<boolean>(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+  const hasSavedRef = useRef<boolean>(false);
 
+  // Technical Refs
   const videoRef = useRef<HTMLVideoElement | null>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animFrameRef = useRef<number | null>(null);
   const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
-  const startTimeRef = useRef<number>(0);
+  const sessionStartTimeRef = useRef<number>(0);
+  const isPausedRef = useRef<boolean>(false);
+  const repStateRef = useRef<RepCounterState>(repState);
+  repStateRef.current = repState;
 
-  // Load plan exercise
+  // Sync target reps from exercise plan
   useEffect(() => {
-    const loadExercise = async () => {
-      const plan = await repository.getRecoveryPlan(activeProfile.id);
-      if (plan) {
-        const exercises = await repository.getPlanExercises(plan.id);
-        if (exercises.length > 0) {
-          setExercise(exercises[0]);
+    let isMounted = true;
+    const loadPlan = async () => {
+      try {
+        const plan = await repository.getRecoveryPlan(activeProfile.id);
+        if (plan) {
+          const exercises = await repository.getPlanExercises(plan.id);
+          if (isMounted && exercises.length > 0) {
+            const prescribed = exercises[0];
+            setExercise(prescribed);
+            setRepConfig((prev) => ({
+              ...prev,
+              targetReps: prescribed.target_repetitions || 10,
+            }));
+          }
         }
+      } catch (err) {
+        console.warn('Error loading plan exercises:', err);
       }
     };
-    loadExercise();
+
+    loadPlan();
+    return () => {
+      isMounted = false;
+    };
   }, [activeProfile.id]);
 
-  // Cleanup camera stream
+  // Clean up camera stream and animation frames
   const stopCameraStream = useCallback(() => {
     if (streamRef.current) {
-      streamRef.current.getTracks().forEach((track) => track.stop());
+      streamRef.current.getTracks().forEach((track) => {
+        try {
+          track.stop();
+        } catch (e) {
+          console.warn('Error stopping track:', e);
+        }
+      });
       streamRef.current = null;
     }
+
+    if (videoRef.current) {
+      videoRef.current.srcObject = null;
+    }
+
     if (animFrameRef.current) {
       cancelAnimationFrame(animFrameRef.current);
       animFrameRef.current = null;
     }
-    setCameraActive(false);
+
+    setCameraStatus((prev) => (prev === 'active' || prev === 'paused' ? 'stopped' : prev));
   }, []);
 
+  // Cleanup on unmount or route exit
   useEffect(() => {
     return () => {
       stopCameraStream();
-      if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
+      if (timerIntervalRef.current) {
+        clearInterval(timerIntervalRef.current);
+        timerIntervalRef.current = null;
+      }
     };
   }, [stopCameraStream]);
 
-  // Start Camera with user permission
+  // Request explicit camera permission and initialize video
   const handleStartCamera = async () => {
-    setPermissionDenied(false);
-    setModelLoading(true);
+    setCameraStatus('requesting_permission');
+    setCameraErrorMessage('');
+    setModelStatus('loading');
 
     try {
+      // Step 1: Explicit camera request
       const stream = await navigator.mediaDevices.getUserMedia({
         video: {
           facingMode: 'user',
@@ -101,403 +173,721 @@ export const ExerciseCoach: React.FC = () => {
       });
 
       streamRef.current = stream;
+
+      // Step 2: Initialize MediaPipe PoseLandmarker model
+      let poseLandmarker: PoseLandmarker | null = null;
+      try {
+        poseLandmarker = await getPoseLandmarker();
+        setModelStatus('ready');
+      } catch (modelErr) {
+        console.warn('MediaPipe model load failed, allowing camera with demo fallback:', modelErr);
+        setModelStatus('failed');
+      }
+
+      // Step 3: Attach stream to video element
       if (videoRef.current) {
         videoRef.current.srcObject = stream;
         videoRef.current.onloadedmetadata = () => {
-          videoRef.current?.play();
-          setCameraActive(true);
-          setModelLoading(false);
-          startVisionTracking();
+          videoRef.current?.play().catch((e) => console.warn('Video play error:', e));
+          setCameraStatus('active');
+          startTrackingLoop(poseLandmarker);
         };
       }
-    } catch (err) {
-      console.warn('Camera access denied or device unavailable:', err);
-      setPermissionDenied(true);
-      setModelLoading(false);
+    } catch (err: unknown) {
+      console.warn('Camera access issue:', err);
+      stopCameraStream();
+
+      const domError = err as { name?: string; message?: string };
+      if (domError.name === 'NotAllowedError' || domError.name === 'PermissionDeniedError') {
+        setCameraStatus('permission_denied');
+        setCameraErrorMessage(
+          'Camera access was denied. Please allow camera permissions in your browser address bar to use automated pose tracking.'
+        );
+      } else if (
+        domError.name === 'NotFoundError' ||
+        domError.name === 'DevicesNotFoundError' ||
+        domError.name === 'NotReadableError'
+      ) {
+        setCameraStatus('camera_unavailable');
+        setCameraErrorMessage(
+          'No camera was found or the camera is already in use by another application. You can use our guided demonstration mode instead.'
+        );
+      } else {
+        setCameraStatus('camera_unavailable');
+        setCameraErrorMessage(
+          domError.message || 'Unable to access camera device. Please verify your camera settings.'
+        );
+      }
+      setModelStatus('idle');
     }
   };
 
-  // State machine for seated knee flexion & extension
-  const processKneeMotion = useCallback((angle: number) => {
-    setKneeAngle(Math.round(angle));
+  // Switch to guided demonstration mode without camera
+  const handleStartDemoMode = () => {
+    stopCameraStream();
+    setIsManualDemoMode(true);
+    setCameraStatus('active');
+    setModelStatus('fallback_demo');
+    startDemoTrackingLoop();
+  };
 
-    // Thresholds:
-    // Full extension/rest: ~160° - 175°
-    // Target flexion: <= 100° (deep bend)
-    setMovementPhase((prevPhase) => {
-      if (angle <= 105 && prevPhase !== 'holding' && prevPhase !== 'recovering') {
-        setFeedbackMessage('Great flexion depth! Hold for 2 seconds.');
-        return 'holding';
-      } else if (angle > 110 && angle < 150) {
-        setFeedbackMessage('Slowly sliding heel back...');
-        return 'flexing';
-      } else if (angle >= 150 && prevPhase === 'holding') {
-        // Completed repetition cycle
-        setRepetitions((r) => r + 1);
-        setFeedbackMessage('Repetition completed! Excellent controlled form.');
-        return 'extension';
-      }
-      return prevPhase;
-    });
-  }, []);
+  // Main vision tracking loop (runs MediaPipe on live video frames)
+  const startTrackingLoop = (landmarker: PoseLandmarker | null) => {
+    let lastVideoTime = -1;
 
-  // Tracking loop with HTML5 Canvas overlay
-  const startVisionTracking = useCallback(() => {
-    let simulatedAngle = 165;
-    let direction = -1;
-
-    const renderLoop = () => {
-      const canvas = canvasRef.current;
+    const renderFrame = () => {
       const video = videoRef.current;
+      const canvas = canvasRef.current;
 
-      if (canvas && video && video.readyState >= 2) {
+      if (!video || !canvas || video.readyState < 2) {
+        animFrameRef.current = requestAnimationFrame(renderFrame);
+        return;
+      }
+
+      // Match canvas dimensions to video
+      if (canvas.width !== video.videoWidth || canvas.height !== video.videoHeight) {
         canvas.width = video.videoWidth || 640;
         canvas.height = video.videoHeight || 480;
-        const ctx = canvas.getContext('2d');
-
-        if (ctx) {
-          ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-          // Simulated anatomical landmark tracking (Hip, Knee, Ankle)
-          // In real MediaPipe execution, landmarks map to indices 23 (hip), 25 (knee), 27 (ankle)
-          const centerX = canvas.width * 0.55;
-          const hipY = canvas.height * 0.4;
-          const kneeY = canvas.height * 0.65;
-
-          // Leg oscillation simulation for demo tracking
-          if (direction === -1) {
-            simulatedAngle -= 0.6;
-            if (simulatedAngle <= 95) direction = 1;
-          } else {
-            simulatedAngle += 0.6;
-            if (simulatedAngle >= 165) direction = -1;
-          }
-
-          const ankleX = centerX - Math.sin(((180 - simulatedAngle) * Math.PI) / 180) * 110;
-          const ankleY = kneeY + Math.cos(((180 - simulatedAngle) * Math.PI) / 180) * 110;
-
-          // Draw skeleton lines
-          ctx.lineWidth = 4;
-          ctx.strokeStyle = '#0D9488'; // teal-calm
-          ctx.beginPath();
-          ctx.moveTo(centerX, hipY);
-          ctx.lineTo(centerX, kneeY);
-          ctx.lineTo(ankleX, ankleY);
-          ctx.stroke();
-
-          // Draw landmark joints
-          const drawJoint = (x: number, y: number, label: string) => {
-            ctx.fillStyle = '#FFFFFF';
-            ctx.beginPath();
-            ctx.arc(x, y, 7, 0, 2 * Math.PI);
-            ctx.fill();
-            ctx.strokeStyle = '#0F1D38';
-            ctx.lineWidth = 2;
-            ctx.stroke();
-
-            ctx.fillStyle = '#0F1D38';
-            ctx.font = '10px -apple-system, sans-serif';
-            ctx.fillText(label, x + 10, y + 4);
-          };
-
-          drawJoint(centerX, hipY, 'Hip');
-          drawJoint(centerX, kneeY, `Knee (${Math.round(simulatedAngle)}°)`);
-          drawJoint(ankleX, ankleY, 'Ankle');
-
-          processKneeMotion(simulatedAngle);
-        }
       }
 
-      animFrameRef.current = requestAnimationFrame(renderLoop);
+      const ctx = canvas.getContext('2d');
+      if (!ctx) {
+        animFrameRef.current = requestAnimationFrame(renderFrame);
+        return;
+      }
+
+      const now = performance.now();
+
+      // Only run MediaPipe when video time advances and model is available
+      if (landmarker && video.currentTime !== lastVideoTime) {
+        lastVideoTime = video.currentTime;
+
+        try {
+          const results = landmarker.detectForVideo(video, now);
+
+          if (results && results.landmarks && results.landmarks.length > 0) {
+            const rawLandmarks = results.landmarks[0];
+            const legLandmarks: LegLandmarks | null = extractLegLandmarks(
+              rawLandmarks,
+              repConfig.sidePreference
+            );
+
+            if (legLandmarks) {
+              setDetectionQuality('good');
+              setTrackedSide(legLandmarks.side);
+
+              // Calculate biomechanical knee angle
+              const calculatedAngle = calculateJointAngle(
+                legLandmarks.hip,
+                legLandmarks.knee,
+                legLandmarks.ankle
+              );
+
+              // If active and not paused, update rep counter state machine
+              if (!isPausedRef.current) {
+                const nextState = updateRepCounter(
+                  repStateRef.current,
+                  calculatedAngle,
+                  repConfig,
+                  Date.now()
+                );
+                setRepState(nextState);
+
+                // Render anatomical overlay
+                drawPoseOverlay(ctx, canvas.width, canvas.height, legLandmarks, {
+                  kneeAngle: nextState.currentAngle,
+                  phase: nextState.phase,
+                  holdProgressPercent: nextState.holdProgressPercent,
+                });
+              } else {
+                // Paused: draw static overlay
+                drawPoseOverlay(ctx, canvas.width, canvas.height, legLandmarks, {
+                  kneeAngle: repStateRef.current.currentAngle,
+                  phase: 'paused',
+                  holdProgressPercent: 0,
+                });
+              }
+            } else {
+              setDetectionQuality('low_confidence');
+              setTrackedSide('none');
+              ctx.clearRect(0, 0, canvas.width, canvas.height);
+            }
+          } else {
+            setDetectionQuality('no_pose');
+            setTrackedSide('none');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+          }
+        } catch (visionErr) {
+          console.warn('Frame detection warning:', visionErr);
+        }
+      } else if (!landmarker) {
+        // Model not loaded: render animated demo skeleton over video
+        setDetectionQuality('good');
+        runSimulatedFrame(ctx, canvas.width, canvas.height);
+      }
+
+      animFrameRef.current = requestAnimationFrame(renderFrame);
     };
 
-    animFrameRef.current = requestAnimationFrame(renderLoop);
-  }, [processKneeMotion]);
+    animFrameRef.current = requestAnimationFrame(renderFrame);
+  };
 
-  // Session duration timer
+  // Demo tracking loop for demonstration mode
+  let demoAngle = 155;
+  let demoDirection = -1;
+
+  const runSimulatedFrame = (
+    ctx: CanvasRenderingContext2D,
+    width: number,
+    height: number
+  ) => {
+    if (!isPausedRef.current) {
+      if (demoDirection === -1) {
+        demoAngle -= 0.6;
+        if (demoAngle <= 98) demoDirection = 1;
+      } else {
+        demoAngle += 0.6;
+        if (demoAngle >= 155) demoDirection = -1;
+      }
+
+      const nextState = updateRepCounter(
+        repStateRef.current,
+        demoAngle,
+        repConfig,
+        Date.now()
+      );
+      setRepState(nextState);
+
+      drawSimulatedOverlay(ctx, width, height, demoAngle, {
+        kneeAngle: Math.round(demoAngle),
+        phase: nextState.phase,
+        holdProgressPercent: nextState.holdProgressPercent,
+      });
+    } else {
+      drawSimulatedOverlay(ctx, width, height, demoAngle, {
+        kneeAngle: Math.round(demoAngle),
+        phase: 'paused',
+        holdProgressPercent: 0,
+      });
+    }
+  };
+
+  const startDemoTrackingLoop = () => {
+    const renderDemo = () => {
+      const canvas = canvasRef.current;
+      if (canvas) {
+        if (canvas.width !== 640) canvas.width = 640;
+        if (canvas.height !== 480) canvas.height = 480;
+
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          setDetectionQuality('good');
+          setTrackedSide('right');
+          runSimulatedFrame(ctx, canvas.width, canvas.height);
+        }
+      }
+      animFrameRef.current = requestAnimationFrame(renderDemo);
+    };
+    animFrameRef.current = requestAnimationFrame(renderDemo);
+  };
+
+  // Start workout session
   const handleStartWorkout = () => {
-    setIsExercising(true);
-    setRepetitions(0);
-    setDurationSeconds(0);
-    startTimeRef.current = Date.now();
+    setIsWorkoutActive(true);
+    setIsPaused(false);
+    isPausedRef.current = false;
+    setElapsedSeconds(0);
+    setRepState(createInitialRepCounterState());
+    hasSavedRef.current = false;
+    sessionStartTimeRef.current = Date.now();
 
+    if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
     timerIntervalRef.current = setInterval(() => {
-      setDurationSeconds(Math.floor((Date.now() - startTimeRef.current) / 1000));
+      setElapsedSeconds((prev) => prev + 1);
     }, 1000);
   };
 
-  const handleStopWorkout = async (status: 'completed' | 'stopped_early') => {
+  // Pause workout
+  const handlePauseWorkout = () => {
+    setIsPaused(true);
+    isPausedRef.current = true;
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+  };
+
+  // Resume workout
+  const handleResumeWorkout = () => {
+    setIsPaused(false);
+    isPausedRef.current = false;
     if (timerIntervalRef.current) clearInterval(timerIntervalRef.current);
-    setIsExercising(false);
+    timerIntervalRef.current = setInterval(() => {
+      setElapsedSeconds((prev) => prev + 1);
+    }, 1000);
+  };
+
+  // Stop or finish workout session
+  const handleStopWorkout = async (status: SessionStatus) => {
+    if (timerIntervalRef.current) {
+      clearInterval(timerIntervalRef.current);
+      timerIntervalRef.current = null;
+    }
+
+    setIsWorkoutActive(false);
+    setIsPaused(false);
+    isPausedRef.current = false;
     stopCameraStream();
 
-    const finalDuration = Math.max(durationSeconds, 5);
-    const mode = manualFallbackMode ? 'manual_demo' : 'camera_prototype';
+    // Prepare and automatically save session metadata (preventing duplicate submission)
+    await saveSessionMetadata(status);
+    setShowSummaryModal(true);
+  };
 
-    const sessionData: Omit<ExerciseSession, 'id' | 'created_at'> = {
+  // Save session metadata with strict authorization and duplicate prevention
+  const saveSessionMetadata = async (status: SessionStatus) => {
+    if (hasSavedRef.current || isSaving) return;
+    hasSavedRef.current = true;
+    setIsSaving(true);
+    setSaveError(null);
+
+    const finalDuration = Math.max(elapsedSeconds, 5);
+    const mode: MeasurementMode = isManualDemoMode ? 'manual_demo' : 'camera_prototype';
+
+    const sessionPayload: Omit<ExerciseSession, 'id' | 'created_at'> = {
       patient_id: activeProfile.id,
       plan_exercise_id: exercise?.id || 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb',
-      started_at: new Date(startTimeRef.current || Date.now() - finalDuration * 1000).toISOString(),
+      started_at: new Date(sessionStartTimeRef.current || Date.now() - finalDuration * 1000).toISOString(),
       ended_at: new Date().toISOString(),
       duration_seconds: finalDuration,
-      repetitions,
+      repetitions: repState.repetitions,
       status,
       measurement_mode: mode,
     };
 
-    const saved = await repository.saveExerciseSession(sessionData);
-    setSavedSession(saved);
+    try {
+      const saved = await repository.saveExerciseSession(sessionPayload);
+      setSavedSession(saved);
+    } catch (err: unknown) {
+      console.warn('Session save error:', err);
+      setSaveError('Could not save session record. Please try saving again.');
+      hasSavedRef.current = false; // Allow retry if save failed
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   return (
-    <div className="space-y-4 max-w-xl mx-auto">
-      {/* Top Header */}
+    <div className="space-y-4 max-w-xl mx-auto pb-12">
+      {/* Top Breadcrumb & Status */}
       <div className="flex items-center justify-between">
         <button
           onClick={() => {
             stopCameraStream();
             navigate('/');
           }}
-          className="flex items-center gap-1 text-xs font-semibold text-slate-muted hover:text-navy-900"
+          className="flex items-center gap-1.5 text-xs font-semibold text-slate-muted hover:text-navy-900 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Back to Home</span>
+          <span>Back to Recovery Home</span>
         </button>
 
-        <Badge variant="teal" icon={<Sparkles className="w-3.5 h-3.5" />}>
-          Vision Coach Prototype
+        <Badge
+          variant={isManualDemoMode ? 'warning' : 'teal'}
+          icon={<Sparkles className="w-3.5 h-3.5" />}
+        >
+          {isManualDemoMode ? 'Guided Demo Mode' : 'AI Pose Landmarker'}
         </Badge>
       </div>
 
-      {/* Exercise Instructions Card */}
-      <Card>
-        <div className="flex items-start justify-between mb-2">
+      {/* Prescribed Exercise Card (From Recovery Plan) */}
+      <Card className="p-4 sm:p-5">
+        <div className="flex items-start justify-between gap-3 mb-2">
           <div>
-            <span className="text-[10px] uppercase font-bold text-teal-calm tracking-wider">
-              Prescribed Exercise
+            <span className="text-[10px] uppercase font-bold text-teal-calm tracking-wider block mb-0.5">
+              Prescribed Recovery Plan Exercise
             </span>
-            <h1 className="text-lg font-bold text-navy-900">
+            <h1 className="text-lg sm:text-xl font-bold text-navy-900">
               {exercise?.name || 'Seated Knee Flexion & Extension'}
             </h1>
           </div>
-          <Badge variant="neutral">Target: {exercise?.target_repetitions || 10} reps</Badge>
+          <div className="flex gap-1.5 shrink-0">
+            <Badge variant="teal">Target: {repConfig.targetReps} reps</Badge>
+          </div>
         </div>
-        <p className="text-xs text-slate-muted leading-relaxed">
+
+        <p className="text-xs sm:text-sm text-slate-muted leading-relaxed">
           {exercise?.instructions ||
-            'Sit upright in a chair with feet flat. Slowly slide operative heel back under chair to bend knee. Hold 3 seconds, then return.'}
+            'Sit upright in a sturdy chair with feet flat on the floor. Slowly slide your operative foot back under the chair as far as comfortable to bend your knee. Hold for 2-3 seconds, then gently straighten the leg forward. Repeat smoothly without bouncing.'}
         </p>
+
+        {/* Transparent Rep Counting Rule Config */}
+        <div className="mt-3 pt-3 border-t border-warm-border flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-subtle">
+          <div className="flex items-center gap-1.5">
+            <Sliders className="w-3.5 h-3.5 text-teal-calm" />
+            <span>
+              Target Bend: <strong>≤{repConfig.flexionThreshold}°</strong> • Return:{' '}
+              <strong>≥{repConfig.extensionThreshold}°</strong>
+            </span>
+          </div>
+          <span className="text-slate-subtle">
+            Tracking Side:{' '}
+            <strong className="capitalize">{trackedSide !== 'none' ? trackedSide : 'Auto'}</strong>
+          </span>
+        </div>
       </Card>
 
-      {/* Camera / Vision Viewport Card */}
-      <Card className="p-2 sm:p-3 relative overflow-hidden bg-navy-950 text-white rounded-2xl">
+      {/* Camera Viewport & Overlays */}
+      <Card className="p-2 sm:p-3 relative overflow-hidden bg-navy-950 text-white rounded-2xl shadow-md border-navy-800">
         <div className="relative aspect-[4/3] w-full rounded-xl overflow-hidden bg-navy-900 flex items-center justify-center">
-          {/* Real video feed */}
+          {/* Live Video Feed */}
           <video
             ref={videoRef}
             playsInline
             muted
             className={`absolute inset-0 w-full h-full object-cover transform -scale-x-100 ${
-              cameraActive ? 'block' : 'hidden'
+              cameraStatus === 'active' && !isManualDemoMode ? 'block' : 'hidden'
             }`}
           />
 
-          {/* Canvas landmark overlay */}
+          {/* HTML5 Canvas Pose Overlay */}
           <canvas
             ref={canvasRef}
             className={`absolute inset-0 w-full h-full pointer-events-none transform -scale-x-100 ${
-              cameraActive ? 'block' : 'hidden'
+              cameraStatus === 'active' ? 'block' : 'hidden'
             }`}
           />
 
-          {/* Fallback & Initial State Overlays */}
-          {!cameraActive && !permissionDenied && (
-            <div className="text-center p-6 space-y-3 z-10">
-              <div className="w-14 h-14 rounded-full bg-navy-800 text-teal-calm mx-auto flex items-center justify-center border border-navy-700">
+          {/* Pre-Camera / Initial State Explanation & Privacy */}
+          {cameraStatus === 'idle' && (
+            <div className="text-center p-6 space-y-3.5 z-10 max-w-sm mx-auto">
+              <div className="w-14 h-14 rounded-full bg-navy-800 text-teal-calm mx-auto flex items-center justify-center border border-navy-700 shadow-inner">
                 <Camera className="w-7 h-7" />
               </div>
+
               <div>
-                <h3 className="text-sm font-semibold text-white">Camera Assist Inactive</h3>
-                <p className="text-xs text-slate-muted max-w-xs mx-auto mt-1">
-                  Camera processing runs strictly on-device in your browser. No video frames are ever recorded or stored.
+                <h3 className="text-sm sm:text-base font-semibold text-white">
+                  Camera-Assisted Exercise Tracking
+                </h3>
+                <p className="text-xs text-slate-muted mt-1 leading-relaxed">
+                  Position your device so your side profile and chair are in full view. We’ll measure your knee movement and count repetitions automatically.
                 </p>
               </div>
-              <Button
-                variant="primary"
-                onClick={handleStartCamera}
-                isLoading={modelLoading}
-                icon={<Camera className="w-4 h-4" />}
-              >
-                {modelLoading ? 'Initializing Vision...' : 'Enable Camera'}
-              </Button>
+
+              {/* Explicit Privacy Notice */}
+              <div className="bg-navy-900/90 border border-navy-700 rounded-xl p-2.5 text-left flex items-start gap-2">
+                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
+                <p className="text-[11px] text-slate-300 leading-tight">
+                  <strong className="text-white">Strict On-Device Privacy:</strong> MediaPipe pose processing runs 100% locally in your browser. No video frames are ever recorded, saved, or uploaded.
+                </p>
+              </div>
+
+              <div className="pt-1 flex flex-col gap-2">
+                <Button
+                  fullWidth
+                  variant="primary"
+                  onClick={handleStartCamera}
+                  icon={<Camera className="w-4 h-4" />}
+                >
+                  Enable Camera & Start
+                </Button>
+                <Button
+                  fullWidth
+                  size="sm"
+                  variant="outline"
+                  onClick={handleStartDemoMode}
+                  className="text-slate-300 border-navy-700 hover:bg-navy-800"
+                >
+                  Try Demonstration Mode Without Camera
+                </Button>
+              </div>
             </div>
           )}
 
-          {/* Permission Denied / Fallback State */}
-          {permissionDenied && (
-            <div className="text-center p-6 space-y-3 z-10 bg-navy-900/90">
+          {/* Requesting Permission / Model Loading Spinner */}
+          {(cameraStatus === 'requesting_permission' || modelStatus === 'loading') && (
+            <div className="text-center p-6 space-y-3 z-10">
+              <RefreshCw className="w-8 h-8 text-teal-calm animate-spin mx-auto" />
+              <div>
+                <h3 className="text-sm font-semibold text-white">
+                  {cameraStatus === 'requesting_permission'
+                    ? 'Requesting Camera Permission...'
+                    : 'Loading MediaPipe Pose Model...'}
+                </h3>
+                <p className="text-xs text-slate-muted max-w-xs mx-auto mt-1">
+                  Please accept the camera permission prompt in your browser. Preparing on-device computer vision.
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Permission Denied UI */}
+          {cameraStatus === 'permission_denied' && (
+            <div className="text-center p-6 space-y-3 z-10 bg-navy-900/95 max-w-sm mx-auto">
               <div className="w-12 h-12 rounded-full bg-status-warning-bg text-status-warning mx-auto flex items-center justify-center">
                 <VideoOff className="w-6 h-6" />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-white">Camera Access Denied or Unavailable</h3>
-                <p className="text-xs text-slate-muted max-w-xs mx-auto mt-1">
-                  You can still track your repetitions using our simulated demonstration mode.
+                <h3 className="text-sm font-semibold text-white">Camera Access Denied</h3>
+                <p className="text-xs text-slate-muted mt-1 leading-relaxed">
+                  {cameraErrorMessage}
                 </p>
               </div>
-              <div className="flex gap-2 justify-center">
+              <div className="pt-2 flex flex-col gap-2">
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={handleStartCamera}
+                  icon={<RefreshCw className="w-3.5 h-3.5" />}
+                >
+                  Retry Camera Permission
+                </Button>
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={handleStartDemoMode}
+                  className="text-slate-300 border-navy-700"
+                >
+                  Use Guided Demo Mode
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {/* Camera Unavailable UI */}
+          {cameraStatus === 'camera_unavailable' && (
+            <div className="text-center p-6 space-y-3 z-10 bg-navy-900/95 max-w-sm mx-auto">
+              <div className="w-12 h-12 rounded-full bg-rose-900/40 text-rose-400 mx-auto flex items-center justify-center">
+                <AlertTriangle className="w-6 h-6" />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-white">Camera Unavailable</h3>
+                <p className="text-xs text-slate-muted mt-1 leading-relaxed">
+                  {cameraErrorMessage}
+                </p>
+              </div>
+              <div className="pt-2 flex flex-col gap-2">
+                <Button
+                  size="sm"
+                  variant="primary"
+                  onClick={handleStartDemoMode}
+                >
+                  Continue in Demo Mode
+                </Button>
                 <Button
                   size="sm"
                   variant="outline"
                   onClick={handleStartCamera}
-                  icon={<RefreshCw className="w-3.5 h-3.5" />}
+                  className="text-slate-300 border-navy-700"
                 >
-                  Retry Camera
-                </Button>
-                <Button
-                  size="sm"
-                  variant="primary"
-                  onClick={() => {
-                    setManualFallbackMode(true);
-                    setPermissionDenied(false);
-                    setCameraActive(true);
-                    startVisionTracking();
-                  }}
-                >
-                  Use Demo Mode
+                  Retry Device Detection
                 </Button>
               </div>
+            </div>
+          )}
+
+          {/* Model Loading Failure UI */}
+          {modelStatus === 'failed' && (
+            <div className="absolute top-3 left-3 right-3 bg-amber-900/80 border border-amber-600 rounded-lg p-2.5 text-xs text-amber-200 flex items-center justify-between z-20">
+              <div className="flex items-center gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-300 shrink-0" />
+                <span>MediaPipe model could not load. Running in assisted demo mode.</span>
+              </div>
+              <Button size="sm" variant="outline" onClick={handleStartDemoMode} className="text-xs py-0.5 px-2 h-auto text-amber-100 border-amber-400">
+                Acknowledge
+              </Button>
             </div>
           )}
 
           {/* Live In-Session HUD Overlays */}
-          {cameraActive && (
-            <div className="absolute top-3 left-3 right-3 flex justify-between items-start pointer-events-none">
-              <div className="bg-navy-950/80 backdrop-blur-sm border border-navy-700/60 rounded-lg px-2.5 py-1 text-left">
-                <p className="text-[10px] text-slate-muted uppercase font-semibold">Joint Angle</p>
-                <p className="text-base font-bold text-teal-calm">{kneeAngle}°</p>
-                <p className="text-[9px] text-slate-subtle uppercase tracking-wider">{movementPhase}</p>
-              </div>
-
-              <div className="bg-navy-950/80 backdrop-blur-sm border border-navy-700/60 rounded-lg px-2.5 py-1 text-center">
-                <p className="text-[10px] text-slate-muted uppercase font-semibold">Repetitions</p>
-                <p className="text-base font-bold text-white">
-                  {repetitions} / {exercise?.target_repetitions || 10}
-                </p>
-              </div>
-
-              <div className="bg-navy-950/80 backdrop-blur-sm border border-navy-700/60 rounded-lg px-2.5 py-1 text-right">
-                <p className="text-[10px] text-slate-muted uppercase font-semibold">Timer</p>
-                <p className="text-base font-bold text-white font-mono">
-                  {Math.floor(durationSeconds / 60)}:
-                  {(durationSeconds % 60).toString().padStart(2, '0')}
-                </p>
-              </div>
-            </div>
-          )}
-
-          {/* Live Form Guidance Banner */}
-          {cameraActive && (
-            <div className="absolute bottom-3 left-3 right-3 bg-navy-950/85 backdrop-blur-sm border border-teal-calm/40 rounded-xl px-3 py-1.5 text-center pointer-events-none">
-              <p className="text-xs font-medium text-teal-light">{feedbackMessage}</p>
-            </div>
-          )}
-        </div>
-
-        {/* Workout Control Actions */}
-        <div className="mt-3 flex gap-2">
-          {!isExercising ? (
-            <Button
-              fullWidth
-              size="lg"
-              variant="primary"
-              onClick={handleStartWorkout}
-              icon={<Play className="w-5 h-5 fill-current" />}
-            >
-              Start Recording Session
-            </Button>
-          ) : (
+          {cameraStatus === 'active' && (
             <>
-              <Button
-                variant="outline"
-                className="flex-1"
-                onClick={() => handleStopWorkout('stopped_early')}
-                icon={<Square className="w-4 h-4" />}
-              >
-                Stop Early
-              </Button>
-              <Button
-                variant="primary"
-                className="flex-1 bg-emerald-600 hover:bg-emerald-700"
-                onClick={() => handleStopWorkout('completed')}
-                icon={<CheckCircle className="w-4 h-4" />}
-              >
-                Finish Session
-              </Button>
+              {/* Top HUD bar */}
+              <div className="absolute top-3 left-3 right-3 flex justify-between items-start pointer-events-none z-10">
+                {/* Joint Angle Readout */}
+                <div className="bg-navy-950/85 backdrop-blur-sm border border-navy-700/70 rounded-xl px-3 py-1.5 text-left shadow">
+                  <p className="text-[10px] text-slate-subtle uppercase font-semibold">Knee Angle</p>
+                  <p className="text-lg font-bold text-teal-calm">
+                    {repState.currentAngle}°
+                  </p>
+                  <p className="text-[9px] text-slate-muted uppercase tracking-wider font-semibold">
+                    {repState.phase.replace('_', ' ')}
+                  </p>
+                </div>
+
+                {/* Rep Counter Readout */}
+                <div className="bg-navy-950/85 backdrop-blur-sm border border-navy-700/70 rounded-xl px-3 py-1.5 text-center shadow">
+                  <p className="text-[10px] text-slate-subtle uppercase font-semibold">Repetitions</p>
+                  <p className="text-lg font-bold text-white">
+                    <span className="text-teal-calm">{repState.repetitions}</span> / {repConfig.targetReps}
+                  </p>
+                </div>
+
+                {/* Workout Timer */}
+                <div className="bg-navy-950/85 backdrop-blur-sm border border-navy-700/70 rounded-xl px-3 py-1.5 text-right shadow">
+                  <p className="text-[10px] text-slate-subtle uppercase font-semibold">Session Timer</p>
+                  <p className="text-lg font-bold text-white font-mono">
+                    {Math.floor(elapsedSeconds / 60)}:
+                    {(elapsedSeconds % 60).toString().padStart(2, '0')}
+                  </p>
+                </div>
+              </div>
+
+              {/* Low Quality / No Pose Detection Warning */}
+              {detectionQuality === 'no_pose' && !isManualDemoMode && (
+                <div className="absolute top-16 left-3 right-3 bg-amber-950/90 border border-amber-600/70 rounded-xl px-3 py-2 text-center pointer-events-none z-10">
+                  <p className="text-xs font-semibold text-amber-200 flex items-center justify-center gap-1.5">
+                    <AlertTriangle className="w-4 h-4 text-amber-400" />
+                    <span>No person detected. Position chair 5–7 feet back with your leg visible.</span>
+                  </p>
+                </div>
+              )}
+
+              {/* Paused Overlay Badge */}
+              {isPaused && (
+                <div className="absolute inset-0 bg-navy-950/60 backdrop-blur-sm flex items-center justify-center z-20">
+                  <div className="bg-navy-900 border border-navy-700 rounded-2xl p-4 text-center space-y-2 shadow-2xl">
+                    <Badge variant="warning" icon={<Pause className="w-3.5 h-3.5" />}>
+                      Session Paused
+                    </Badge>
+                    <p className="text-xs text-slate-muted">Take a breath. Press resume when ready to continue.</p>
+                  </div>
+                </div>
+              )}
+
+              {/* Bottom Live Feedback Bar */}
+              <div className="absolute bottom-3 left-3 right-3 bg-navy-950/90 backdrop-blur-sm border border-teal-calm/40 rounded-xl px-3.5 py-2 text-center pointer-events-none z-10">
+                <p className="text-xs font-medium text-teal-light">
+                  {repState.feedbackMessage}
+                </p>
+              </div>
             </>
           )}
         </div>
+
+        {/* Workout Control Bar */}
+        {cameraStatus === 'active' && (
+          <div className="mt-3 flex gap-2">
+            {!isWorkoutActive ? (
+              <Button
+                fullWidth
+                size="lg"
+                variant="primary"
+                onClick={handleStartWorkout}
+                icon={<Play className="w-5 h-5 fill-current" />}
+              >
+                Start Recording Session
+              </Button>
+            ) : (
+              <>
+                {/* Pause / Resume Button */}
+                {!isPaused ? (
+                  <Button
+                    variant="outline"
+                    className="flex-1 text-slate-200 border-navy-700 hover:bg-navy-800"
+                    onClick={handlePauseWorkout}
+                    icon={<Pause className="w-4 h-4" />}
+                  >
+                    Pause
+                  </Button>
+                ) : (
+                  <Button
+                    variant="primary"
+                    className="flex-1"
+                    onClick={handleResumeWorkout}
+                    icon={<Play className="w-4 h-4 fill-current" />}
+                  >
+                    Resume
+                  </Button>
+                )}
+
+                {/* Stop Early Button */}
+                <Button
+                  variant="outline"
+                  className="flex-1 text-slate-300 border-navy-700 hover:bg-navy-800"
+                  onClick={() => handleStopWorkout('stopped_early')}
+                  icon={<Square className="w-4 h-4" />}
+                >
+                  Stop Early
+                </Button>
+
+                {/* Finish Session Button */}
+                <Button
+                  variant="primary"
+                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 border-none"
+                  onClick={() => handleStopWorkout('completed')}
+                  icon={<CheckCircle2 className="w-4 h-4" />}
+                >
+                  Finish
+                </Button>
+              </>
+            )}
+          </div>
+        )}
       </Card>
 
-      {/* Clinical Disclaimer */}
-      <div className="p-3 bg-warm-subtle rounded-xl border border-warm-border text-xs text-slate-muted flex items-start gap-2.5">
-        <HelpCircle className="w-4 h-4 text-teal-calm shrink-0 mt-0.5" />
-        <p>
-          <strong className="text-navy-900 font-semibold">Demonstration Disclaimer:</strong> ReKnee AI pose tracking is an educational prototype and does not provide clinically certified joint range-of-motion measurements. Never force movement through sharp joint distress.
+      {/* Non-Diagnostic Disclaimer (PRD Requirement) */}
+      <div className="p-3.5 bg-warm-subtle rounded-xl border border-warm-border text-xs text-slate-muted flex items-start gap-2.5">
+        <Info className="w-4 h-4 text-teal-calm shrink-0 mt-0.5" />
+        <p className="leading-relaxed">
+          <strong className="text-navy-900 font-semibold">Prototype Exercise Assistance:</strong>{' '}
+          ReKnee AI pose tracking is an exploratory exercise companion designed for guidance and routine documentation. It is not a medical diagnostic tool and does not provide clinically certified joint range-of-motion measurements. Stop exercising immediately if you feel acute or sharp pain.
         </p>
       </div>
 
-      {/* Completion Summary Modal */}
+      {/* Session Completion & Summary Modal */}
       <Modal
-        isOpen={Boolean(savedSession)}
+        isOpen={showSummaryModal}
         onClose={() => {
-          setSavedSession(null);
+          setShowSummaryModal(false);
           navigate('/');
         }}
-        title="Session Completed & Logged"
+        title="Session Summary & Record"
       >
-        <div className="space-y-4 text-center">
-          <div className="w-14 h-14 bg-status-success-bg text-status-success rounded-full mx-auto flex items-center justify-center">
-            <CheckCircle className="w-8 h-8" />
-          </div>
+        <div className="space-y-4">
+          {savedSession && (
+            <SessionSummary
+              session={savedSession}
+              exerciseName={exercise?.name || 'Seated Knee Flexion & Extension'}
+            />
+          )}
 
-          <div>
-            <h3 className="text-lg font-bold text-navy-900">Great Job, Eleanor!</h3>
-            <p className="text-xs text-slate-muted mt-1">
-              Your recovery exercise activity has been saved and shared with your physical therapy care team.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-3 bg-warm-bg p-3 rounded-xl border border-warm-border text-left">
+          {/* Success Banner */}
+          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-2.5 text-xs text-emerald-900">
+            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
             <div>
-              <p className="text-[11px] text-slate-subtle uppercase font-semibold">Repetitions</p>
-              <p className="text-base font-bold text-navy-900">{savedSession?.repetitions} reps</p>
-            </div>
-            <div>
-              <p className="text-[11px] text-slate-subtle uppercase font-semibold">Duration</p>
-              <p className="text-base font-bold text-navy-900">{savedSession?.duration_seconds}s</p>
-            </div>
-            <div>
-              <p className="text-[11px] text-slate-subtle uppercase font-semibold">Status</p>
-              <p className="text-sm font-semibold capitalize text-teal-calm">
-                {savedSession?.status.replace('_', ' ')}
-              </p>
-            </div>
-            <div>
-              <p className="text-[11px] text-slate-subtle uppercase font-semibold">Tracking Mode</p>
-              <p className="text-xs font-medium text-slate-muted">
-                {savedSession?.measurement_mode}
-              </p>
+              <strong className="block font-semibold">Session Recorded Successfully</strong>
+              <span>
+                Your mobility practice data has been saved and shared with your physical therapy care team.
+              </span>
             </div>
           </div>
 
-          <div className="pt-2 flex gap-2">
+          {/* If error occurred during save */}
+          {saveError && (
+            <div className="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-800 flex items-center justify-between">
+              <span>{saveError}</span>
+              <Button
+                size="sm"
+                variant="outline"
+                onClick={() => saveSessionMetadata('completed')}
+                isLoading={isSaving}
+              >
+                Retry Save
+              </Button>
+            </div>
+          )}
+
+          {/* Navigation Next Steps */}
+          <div className="pt-2 flex flex-col sm:flex-row gap-2">
             <Button
               fullWidth
               variant="outline"
               onClick={() => {
-                setSavedSession(null);
+                setShowSummaryModal(false);
                 navigate('/check-in');
               }}
+              icon={<ChevronRight className="w-4 h-4" />}
             >
               Log Daily Check-in
             </Button>
@@ -505,11 +895,12 @@ export const ExerciseCoach: React.FC = () => {
               fullWidth
               variant="primary"
               onClick={() => {
-                setSavedSession(null);
+                setShowSummaryModal(false);
                 navigate('/progress');
               }}
+              icon={<Eye className="w-4 h-4" />}
             >
-              View Progress
+              View Recovery Progress
             </Button>
           </div>
         </div>
