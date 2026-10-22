@@ -11,6 +11,7 @@ import {
   KnowledgeArticle,
   AssistantQuestion,
   Alert,
+  AlertAction,
   UserRole,
 } from '../../types/database';
 import { supabase, isSupabaseConfigured } from './client';
@@ -71,6 +72,37 @@ export const repository = {
     );
   },
 
+  async getPatientProfile(patientId: string): Promise<Profile | null> {
+    const current = this.getCurrentProfile();
+    if (!current) return null;
+
+    if (current.role === 'patient' && current.id !== patientId) {
+      console.warn('Security Notice: Patient cannot access another patient profile.');
+      return null;
+    }
+
+    if (current.role === 'clinician' && !this.isClinicianAuthorizedForPatient(current.id, patientId)) {
+      console.warn('Security Notice: Clinician is not authorized for this patient profile.');
+      return null;
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', patientId)
+          .maybeSingle();
+        if (!error && data) return data as Profile;
+      } catch (err) {
+        console.warn('Supabase query error, falling back to local store:', err);
+      }
+    }
+
+    const store = getStore();
+    return store.profiles.find((p) => p.id === patientId) || null;
+  },
+
   async getRecoveryPlan(patientId: string): Promise<RecoveryPlan | null> {
     const current = this.getCurrentProfile();
     // Deny unauthenticated access
@@ -113,7 +145,7 @@ export const repository = {
           .select('*')
           .eq('plan_id', planId)
           .order('sort_order', { ascending: true });
-        if (!error && data) return data as PlanExercise[];
+        if (!error && data && data.length > 0) return data as PlanExercise[];
       } catch (err) {
         console.warn('Supabase query error, falling back to local store:', err);
       }
@@ -214,7 +246,7 @@ export const repository = {
           .select('*')
           .eq('patient_id', patientId)
           .order('started_at', { ascending: false });
-        if (!error && data) return data as ExerciseSession[];
+        if (!error && data && data.length > 0) return data as ExerciseSession[];
       } catch (err) {
         console.warn('Supabase query error, falling back to local store:', err);
       }
@@ -315,7 +347,7 @@ export const repository = {
           .select('*')
           .eq('patient_id', patientId)
           .order('created_at', { ascending: false });
-        if (!error && data) return data as SymptomCheckin[];
+        if (!error && data && data.length > 0) return data as SymptomCheckin[];
       } catch (err) {
         console.warn('Supabase query error, falling back to local store:', err);
       }
@@ -334,7 +366,7 @@ export const repository = {
           .select('*')
           .eq('approval_status', 'approved')
           .order('title', { ascending: true });
-        if (!error && data) return data as KnowledgeArticle[];
+        if (!error && data && data.length > 0) return data as KnowledgeArticle[];
       } catch (err) {
         console.warn('Supabase query error, falling back to local store:', err);
       }
@@ -392,7 +424,7 @@ export const repository = {
           .select('*')
           .eq('patient_id', patientId)
           .order('created_at', { ascending: false });
-        if (!error && data) return data as AssistantQuestion[];
+        if (!error && data && data.length > 0) return data as AssistantQuestion[];
       } catch (err) {
         console.warn('Supabase query error, falling back to local store:', err);
       }
@@ -417,7 +449,7 @@ export const repository = {
           query = query.eq('patient_id', current.id);
         }
         const { data, error } = await query;
-        if (!error && data) return data as Alert[];
+        if (!error && data && data.length > 0) return data as Alert[];
       } catch (err) {
         console.warn('Supabase query error, falling back to local store:', err);
       }
@@ -473,9 +505,17 @@ export const repository = {
     notes?: string
   ): Promise<Alert | null> {
     const current = this.getCurrentProfile();
-    // Security check: Only clinicians can update alert statuses
+    // Security check: Only clinicians can update alert statuses (11_AUTH_AUTHORIZATION.md)
     if (current && current.role !== 'clinician') {
       throw new Error('Unauthorized: Only clinicians can review or update alerts.');
+    }
+
+    const store = getStore();
+    const alert = store.alerts.find((a) => a.id === alertId);
+
+    // Security check: Clinician must be assigned/authorized for this patient
+    if (alert && !this.isClinicianAuthorizedForPatient(clinicianId, alert.patient_id)) {
+      throw new Error('Unauthorized: Clinician is not authorized to act on this patient’s alerts.');
     }
 
     const now = new Date().toISOString();
@@ -508,14 +548,7 @@ export const repository = {
       }
     }
 
-    const store = getStore();
-    const alert = store.alerts.find((a) => a.id === alertId);
     if (alert) {
-      // Security check: Clinician must be authorized for this patient
-      if (!this.isClinicianAuthorizedForPatient(clinicianId, alert.patient_id)) {
-        throw new Error('Unauthorized: Clinician is not authorized to act on this patient’s alerts.');
-      }
-
       alert.status = status;
       alert.reviewed_at = now;
       alert.reviewed_by = clinicianId;
@@ -537,6 +570,72 @@ export const repository = {
     return null;
   },
 
+  async acknowledgeAlert(
+    alertId: string,
+    clinicianId: string,
+    notes?: string
+  ): Promise<Alert | null> {
+    return this.updateAlertStatus(
+      alertId,
+      'acknowledged',
+      clinicianId,
+      'acknowledged',
+      notes || 'Clinician acknowledged alert.'
+    );
+  },
+
+  async reviewAlert(
+    alertId: string,
+    clinicianId: string,
+    action: string,
+    notes?: string
+  ): Promise<Alert | null> {
+    return this.updateAlertStatus(
+      alertId,
+      'reviewed',
+      clinicianId,
+      action,
+      notes || 'Clinician marked alert as reviewed.'
+    );
+  },
+
+  async getAlertActions(alertId: string): Promise<AlertAction[]> {
+    const current = this.getCurrentProfile();
+    if (!current) return [];
+
+    const store = getStore();
+    const alert = store.alerts.find((a) => a.id === alertId);
+
+    // Patient can only view their own alerts' actions
+    if (current.role === 'patient' && alert && alert.patient_id !== current.id) {
+      console.warn('Security Notice: Patient cannot view another patient’s alert audit actions.');
+      return [];
+    }
+
+    // Clinician must be authorized for this patient
+    if (current.role === 'clinician' && alert && !this.isClinicianAuthorizedForPatient(current.id, alert.patient_id)) {
+      console.warn('Security Notice: Clinician is not authorized for patient alert actions.');
+      return [];
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('alert_actions')
+          .select('*')
+          .eq('alert_id', alertId)
+          .order('created_at', { ascending: false });
+        if (!error && data && data.length > 0) return data as AlertAction[];
+      } catch (err) {
+        console.warn('Supabase query error, falling back to local store:', err);
+      }
+    }
+
+    return store.alertActions
+      .filter((act) => act.alert_id === alertId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+  },
+
   async getClinicianAuthorizedPatients(clinicianId: string): Promise<Profile[]> {
     if (isSupabaseConfigured && supabase) {
       try {
@@ -545,7 +644,7 @@ export const repository = {
           .select('patient_id, profiles!clinician_patient_access_patient_id_fkey(*)')
           .eq('clinician_id', clinicianId)
           .eq('status', 'active');
-        if (!error && data) {
+        if (!error && data && data.length > 0) {
           return (data as unknown as { profiles: Profile }[]).map((d) => d.profiles);
         }
       } catch (err) {

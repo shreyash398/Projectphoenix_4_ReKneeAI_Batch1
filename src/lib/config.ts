@@ -9,8 +9,9 @@ interface AppConfig {
 }
 
 function resolveConfig(): AppConfig {
-  const url = import.meta.env.VITE_SUPABASE_URL || null;
-  const anonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || null;
+  const env = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : {};
+  const url = (env.VITE_SUPABASE_URL as string) || null;
+  const anonKey = (env.VITE_SUPABASE_ANON_KEY as string) || null;
 
   const isConfigured = Boolean(
     url &&
@@ -23,7 +24,7 @@ function resolveConfig(): AppConfig {
     supabaseUrl: url,
     supabaseAnonKey: anonKey,
     isConfigured,
-    appEnv: (import.meta.env.MODE as AppConfig['appEnv']) || 'development',
+    appEnv: (env.MODE as AppConfig['appEnv']) || 'development',
   };
 }
 

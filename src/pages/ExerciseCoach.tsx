@@ -47,7 +47,7 @@ import {
   createInitialRepCounterState,
   updateRepCounter,
 } from '../features/pose/repCounter';
-import { getPoseLandmarker } from '../features/pose/poseService';
+import { getPoseLandmarker, resetPoseLandmarker } from '../features/pose/poseService';
 import { drawPoseOverlay, drawSimulatedOverlay } from '../features/pose/drawing';
 
 export const ExerciseCoach: React.FC = () => {
@@ -148,6 +148,7 @@ export const ExerciseCoach: React.FC = () => {
   useEffect(() => {
     return () => {
       stopCameraStream();
+      resetPoseLandmarker();
       if (timerIntervalRef.current) {
         clearInterval(timerIntervalRef.current);
         timerIntervalRef.current = null;
@@ -160,6 +161,16 @@ export const ExerciseCoach: React.FC = () => {
     setCameraStatus('requesting_permission');
     setCameraErrorMessage('');
     setModelStatus('loading');
+
+    // Secure context & mediaDevices API guard (14_TESTING_QA.md, 18_DEPLOYMENT.md)
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+      setCameraStatus('camera_unavailable');
+      setCameraErrorMessage(
+        'Camera access requires a secure connection (HTTPS) or is not supported by your browser. You can use guided demonstration mode.'
+      );
+      setModelStatus('idle');
+      return;
+    }
 
     try {
       // Step 1: Explicit camera request
@@ -539,12 +550,13 @@ export const ExerciseCoach: React.FC = () => {
 
       {/* Camera Viewport & Overlays */}
       <Card className="p-2 sm:p-3 relative overflow-hidden bg-navy-950 text-white rounded-2xl shadow-md border-navy-800">
-        <div className="relative aspect-[4/3] w-full rounded-xl overflow-hidden bg-navy-900 flex items-center justify-center">
+        <div className="relative aspect-[4/3] max-h-[55vh] sm:max-h-[500px] w-full rounded-xl overflow-hidden bg-navy-900 flex items-center justify-center">
           {/* Live Video Feed */}
           <video
             ref={videoRef}
             playsInline
             muted
+            autoPlay
             className={`absolute inset-0 w-full h-full object-cover transform -scale-x-100 ${
               cameraStatus === 'active' && !isManualDemoMode ? 'block' : 'hidden'
             }`}
@@ -769,15 +781,30 @@ export const ExerciseCoach: React.FC = () => {
         {cameraStatus === 'active' && (
           <div className="mt-3 flex gap-2">
             {!isWorkoutActive ? (
-              <Button
-                fullWidth
-                size="lg"
-                variant="primary"
-                onClick={handleStartWorkout}
-                icon={<Play className="w-5 h-5 fill-current" />}
-              >
-                Start Recording Session
-              </Button>
+              <div className="flex flex-col sm:flex-row gap-2 w-full">
+                <Button
+                  fullWidth
+                  size="lg"
+                  variant="primary"
+                  onClick={handleStartWorkout}
+                  icon={<Play className="w-5 h-5 fill-current" />}
+                  className="flex-1"
+                >
+                  Start Recording Session
+                </Button>
+                <Button
+                  size="lg"
+                  variant="outline"
+                  onClick={() => {
+                    stopCameraStream();
+                    setCameraStatus('idle');
+                    setIsManualDemoMode(false);
+                  }}
+                  className="text-slate-300 border-navy-700 hover:bg-navy-800"
+                >
+                  Exit Camera
+                </Button>
+              </div>
             ) : (
               <>
                 {/* Pause / Resume Button */}

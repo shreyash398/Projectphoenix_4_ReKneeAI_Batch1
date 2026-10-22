@@ -1,127 +1,223 @@
-// ReKnee AI - Deterministic Alert Rule Engine
-// Strictly separating clinical review from engagement reminders
+// ReKnee AI — Deterministic Alert Rule Engine
+// =============================================
+// Evaluates configured rules against patient events.
+// All clinical thresholds come from alertConfig.ts — NO hardcoded medical thresholds here.
+// NO LLM is used to determine whether an alert should be clinically escalated.
+//
+// TWO completely separate categories:
+//   1. clinical_review — requires explicit configured rules to trigger
+//   2. engagement — friendly adherence reminders, NEVER clinical danger
 
 import { Alert, AlertCategory, AlertSeverity, SymptomCheckin, ExerciseSession } from '../../types/database';
+import {
+  CHECKIN_CLINICAL_RULES,
+  SESSION_CLINICAL_RULES,
+  ENGAGEMENT_RULES,
+  DUPLICATE_PREVENTION,
+  CheckinClinicalRule,
+} from './alertConfig';
+
+// ──────────────────────────────────────────────
+// PUBLIC TYPES
+// ──────────────────────────────────────────────
 
 export interface AlertRuleResult {
   shouldAlert: boolean;
   category?: AlertCategory;
   severity?: AlertSeverity;
   reason?: string;
+  /** Which configured rule ID triggered this result */
+  ruleId?: string;
 }
 
+// ──────────────────────────────────────────────
+// 1. CLINICAL ESCALATION — CHECKIN EVALUATION
+// ──────────────────────────────────────────────
+
 /**
- * Evaluates a symptom checkin for clinical escalation rules.
- * All clinical thresholds are demonstrative and require clinician validation.
+ * Evaluates a symptom check-in against ALL enabled clinical escalation rules.
+ * Rules are evaluated in priority order — first match wins.
+ * Only explicitly configured rules can trigger clinical alerts.
  */
 export function evaluateCheckinAlert(checkin: SymptomCheckin): AlertRuleResult {
   const { pain_score, symptoms } = checkin;
 
-  // Rule 1: Emergency Red Flag (Chest pain or difficulty breathing)
-  if (symptoms.chest_pain_shortness_breath) {
-    return {
-      shouldAlert: true,
-      category: 'clinical_review',
-      severity: 'critical',
-      reason:
-        'CRITICAL RED-FLAG: Patient reported chest pain or shortness of breath. Immediate emergency care advised.',
-    };
-  }
+  for (const rule of CHECKIN_CLINICAL_RULES) {
+    if (!rule.enabled) continue;
 
-  // Rule 2: Suspected DVT / Calf Tenderness with Elevated Pain or Swelling
-  if (symptoms.calf_pain && (pain_score >= 5 || symptoms.swelling)) {
-    return {
-      shouldAlert: true,
-      category: 'clinical_review',
-      severity: 'urgent',
-      reason: `Patient reported calf pain/tightness with pain score ${pain_score}/10 and swelling. Recommended review for DVT precaution.`,
-    };
-  }
-
-  // Rule 3: High Acute Pain (Pain >= 8)
-  if (pain_score >= 8) {
-    return {
-      shouldAlert: true,
-      category: 'clinical_review',
-      severity: 'urgent',
-      reason: `Patient reported severe acute pain score (${pain_score}/10) exceeding post-op comfort threshold.`,
-    };
-  }
-
-  // Rule 4: Infection Watch Signals (Fever + Redness / Warmth)
-  if (symptoms.fever && (symptoms.redness || symptoms.warmth)) {
-    return {
-      shouldAlert: true,
-      category: 'clinical_review',
-      severity: 'urgent',
-      reason:
-        'Potential wound complication: Patient reported fever combined with localized redness or warmth.',
-    };
+    if (matchesCheckinRule(rule, pain_score, symptoms)) {
+      const reason = rule.reasonTemplate.replace('{pain_score}', String(pain_score));
+      return {
+        shouldAlert: true,
+        category: rule.category,
+        severity: rule.severity,
+        reason,
+        ruleId: rule.id,
+      };
+    }
   }
 
   return { shouldAlert: false };
 }
 
 /**
- * Evaluates activity gaps for engagement notifications.
+ * Checks whether a check-in matches a specific clinical rule.
+ */
+function matchesCheckinRule(
+  rule: CheckinClinicalRule,
+  painScore: number,
+  symptoms: Record<string, boolean | undefined>
+): boolean {
+  // If rule has trigger symptoms, at least one must be present
+  const hasTriggerSymptom =
+    !rule.triggerSymptoms ||
+    rule.triggerSymptoms.length === 0 ||
+    rule.triggerSymptoms.some(key => symptoms[key] === true);
+
+  if (!hasTriggerSymptom) return false;
+
+  // If rule has a minimum pain score AND no co-symptoms, pain must meet threshold
+  if (rule.minPainScore !== null && rule.minPainScore !== undefined) {
+    // For rules with co-symptoms: trigger if pain >= threshold OR any co-symptom present
+    if (rule.requiredCoSymptoms && rule.requiredCoSymptoms.length > 0) {
+      const hasCoSymptom = rule.requiredCoSymptoms.some(key => symptoms[key] === true);
+      if (painScore < rule.minPainScore && !hasCoSymptom) return false;
+    } else {
+      // Pure pain threshold rule
+      if (painScore < rule.minPainScore) return false;
+    }
+  }
+
+  // For rules with co-symptoms but NO trigger symptoms (not used currently, but safe)
+  if (
+    rule.requiredCoSymptoms &&
+    rule.requiredCoSymptoms.length > 0 &&
+    rule.triggerSymptoms &&
+    rule.triggerSymptoms.length > 0
+  ) {
+    // Already handled above — trigger symptom + (pain OR co-symptom)
+  }
+
+  // Special case: fever + (redness OR warmth) rule
+  // If rule has triggerSymptoms: ['fever'] and requiredCoSymptoms: ['redness', 'warmth']
+  // Then fever must be present AND (redness OR warmth) must be present
+  if (
+    rule.triggerSymptoms &&
+    rule.triggerSymptoms.length > 0 &&
+    rule.requiredCoSymptoms &&
+    rule.requiredCoSymptoms.length > 0 &&
+    rule.minPainScore === null
+  ) {
+    const hasCoSymptom = rule.requiredCoSymptoms.some(key => symptoms[key] === true);
+    if (!hasCoSymptom) return false;
+  }
+
+  return true;
+}
+
+// ──────────────────────────────────────────────
+// 2. CLINICAL ESCALATION — SESSION EVALUATION
+// ──────────────────────────────────────────────
+
+/**
+ * Evaluates an exercise session against ALL enabled session clinical rules.
+ * A stopped exercise is NOT automatically a medical emergency.
+ * Only matching configured rules trigger alerts.
+ */
+export function evaluateSessionAlert(session: ExerciseSession): AlertRuleResult {
+  for (const rule of SESSION_CLINICAL_RULES) {
+    if (!rule.enabled) continue;
+
+    if (session.status === rule.triggerStatus && session.repetitions < rule.maxRepetitions) {
+      const reason = rule.reasonTemplate.replace('{repetitions}', String(session.repetitions));
+      return {
+        shouldAlert: true,
+        category: rule.category,
+        severity: rule.severity,
+        reason,
+        ruleId: rule.id,
+      };
+    }
+  }
+
+  return { shouldAlert: false };
+}
+
+// ──────────────────────────────────────────────
+// 3. ENGAGEMENT REMINDERS — COMPLETELY SEPARATE
+// ──────────────────────────────────────────────
+
+/**
+ * Evaluates activity gap for engagement reminders.
+ * These are NEVER clinical alerts — they use the 'engagement' category only.
+ * A missed exercise session is NOT automatically a medical emergency.
  */
 export function evaluateEngagementGap(
   lastActivityDate: Date | null,
   now: Date = new Date()
 ): AlertRuleResult {
-  if (!lastActivityDate) {
-    return {
-      shouldAlert: true,
-      category: 'engagement',
-      severity: 'low',
-      reason: 'Welcome: No exercise sessions or check-ins recorded yet.',
-    };
-  }
+  for (const rule of ENGAGEMENT_RULES) {
+    if (!rule.enabled) continue;
 
-  const hoursSinceLast = (now.getTime() - lastActivityDate.getTime()) / (1000 * 60 * 60);
+    // Special rule: no activity ever recorded
+    if (lastActivityDate === null && rule.inactivityHoursThreshold === 0) {
+      return {
+        shouldAlert: true,
+        category: rule.category,
+        severity: rule.severity,
+        reason: rule.reasonTemplate,
+        ruleId: rule.id,
+      };
+    }
 
-  if (hoursSinceLast >= 48) {
-    return {
-      shouldAlert: true,
-      category: 'engagement',
-      severity: 'moderate',
-      reason: `Adherence notice: No recovery activity recorded in the past ${Math.round(
-        hoursSinceLast
-      )} hours. Friendly check-in recommended.`,
-    };
+    // Standard inactivity gap
+    if (lastActivityDate && rule.inactivityHoursThreshold > 0) {
+      const hoursSinceLast = (now.getTime() - lastActivityDate.getTime()) / (1000 * 60 * 60);
+      if (hoursSinceLast >= rule.inactivityHoursThreshold) {
+        const reason = rule.reasonTemplate.replace('{hours}', String(Math.round(hoursSinceLast)));
+        return {
+          shouldAlert: true,
+          category: rule.category,
+          severity: rule.severity,
+          reason,
+          ruleId: rule.id,
+        };
+      }
+    }
   }
 
   return { shouldAlert: false };
 }
 
-/**
- * Evaluates stopped-early exercise sessions.
- */
-export function evaluateSessionAlert(session: ExerciseSession): AlertRuleResult {
-  if (session.status === 'stopped_early' && session.repetitions < 3) {
-    return {
-      shouldAlert: true,
-      category: 'clinical_review',
-      severity: 'moderate',
-      reason: `Exercise stopped early after only ${session.repetitions} repetitions. Patient may be experiencing acute discomfort.`,
-    };
-  }
-  return { shouldAlert: false };
-}
+// ──────────────────────────────────────────────
+// 4. DUPLICATE ALERT PREVENTION
+// ──────────────────────────────────────────────
 
 /**
- * Checks if an equivalent active alert already exists to prevent duplicate alert fatigue.
+ * Checks if an equivalent active alert already exists to prevent clinician alert fatigue.
+ * Uses configurable time windows from DUPLICATE_PREVENTION.
  */
 export function isDuplicateAlert(existingAlerts: Alert[], newAlert: Partial<Alert>): boolean {
+  const { sameSourceWindowHours, sameReasonWindowHours, activeStatuses } = DUPLICATE_PREVENTION;
+
   return existingAlerts.some((existing) => {
-    if (existing.status === 'closed') return false;
-    if (existing.source_id && existing.source_id === newAlert.source_id) return true;
-    if (existing.reason === newAlert.reason && existing.patient_id === newAlert.patient_id) {
-      // If within 24 hours
+    // Only check against active (non-closed) alerts
+    if (!activeStatuses.includes(existing.status as typeof activeStatuses[number])) return false;
+
+    // Same source_id → duplicate regardless of reason
+    if (existing.source_id && existing.source_id === newAlert.source_id) {
       const diffHours =
         (Date.now() - new Date(existing.created_at).getTime()) / (1000 * 60 * 60);
-      return diffHours < 24;
+      return diffHours < sameSourceWindowHours;
     }
+
+    // Same reason + same patient within time window
+    if (existing.reason === newAlert.reason && existing.patient_id === newAlert.patient_id) {
+      const diffHours =
+        (Date.now() - new Date(existing.created_at).getTime()) / (1000 * 60 * 60);
+      return diffHours < sameReasonWindowHours;
+    }
+
     return false;
   });
 }

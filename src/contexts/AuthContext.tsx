@@ -66,6 +66,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         if (session?.user) {
           loadProfile(session.user.id);
         } else {
+          // If no active Supabase Auth user is logged in, check if local/demo session is active
+          const current = repository.getCurrentProfile();
+          setProfile(current);
           setIsLoading(false);
         }
       });
@@ -108,38 +111,38 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setIsLoading(true);
     setAuthError(null);
 
-    if (isSupabaseConfigured && supabase) {
+    const trimmedEmail = email.toLowerCase().trim();
+    const isDemoEmail =
+      trimmedEmail.includes('demo') ||
+      trimmedEmail.includes('patient@') ||
+      trimmedEmail.includes('clinician@');
+
+    if (isSupabaseConfigured && supabase && password) {
       try {
-        if (password) {
-          const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-          if (error) {
-            setIsLoading(false);
-            setAuthError(error.message);
-            return { error };
-          }
+        const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+        if (!error && data?.user) {
           setSession(data.session);
           setUser(data.user);
           await loadProfile(data.user.id);
-          return { error: null };
-        } else {
-          const { error } = await supabase.auth.signInWithOtp({ email });
           setIsLoading(false);
-          if (error) {
-            setAuthError(error.message);
-            return { error };
-          }
           return { error: null };
         }
+        if (!isDemoEmail && error) {
+          setIsLoading(false);
+          setAuthError(error.message);
+          return { error };
+        }
       } catch (err) {
-        setIsLoading(false);
-        const error = err instanceof Error ? err : new Error('Authentication failed');
-        setAuthError(error.message);
-        return { error };
+        if (!isDemoEmail) {
+          setIsLoading(false);
+          const error = err instanceof Error ? err : new Error('Authentication failed');
+          setAuthError(error.message);
+          return { error };
+        }
       }
     }
 
     // Demo / Offline Mode Sign-In
-    const trimmedEmail = email.toLowerCase().trim();
     if (trimmedEmail.includes('clinician')) {
       const p = repository.setActiveUserId(DEMO_CLINICIAN_ID);
       setProfile(p);

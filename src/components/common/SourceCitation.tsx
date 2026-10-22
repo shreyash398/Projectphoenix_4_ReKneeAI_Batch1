@@ -31,7 +31,7 @@ export const SourceCitation: React.FC<SourceCitationProps> = ({ articles, classN
               <a
                 href={art.source_url}
                 target="_blank"
-                rel="noreferrer"
+                rel="noopener noreferrer"
                 className="text-teal-calm hover:text-teal-hover p-1"
                 aria-label="Open source link"
               >

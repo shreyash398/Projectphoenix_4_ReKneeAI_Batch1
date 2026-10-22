@@ -243,6 +243,25 @@ const PainScaleCard: React.FC<{
           <span>8 – Severe</span>
           <span>10 – Worst</span>
         </div>
+
+        {/* Discrete Quick Tap Number Buttons for Mobile Accessibility */}
+        <div className="grid grid-cols-11 gap-1 pt-2.5">
+          {Array.from({ length: 11 }, (_, i) => (
+            <button
+              key={i}
+              type="button"
+              onClick={() => onChange(i)}
+              className={`min-h-[36px] py-1 text-xs font-semibold rounded-lg border transition-all ${
+                value === i
+                  ? 'bg-teal-calm text-white border-teal-calm shadow-sm font-bold'
+                  : 'bg-warm-bg text-slate-muted border-warm-border hover:bg-white hover:text-navy-900'
+              }`}
+              aria-label={`Select pain score ${i}`}
+            >
+              {i}
+            </button>
+          ))}
+        </div>
       </div>
 
       {/* Descriptor */}
@@ -426,7 +445,7 @@ export const DailyCheckin: React.FC = () => {
     try {
       const list = await repository.getSymptomCheckins(activeProfile.id);
       setPreviousCheckins(list);
-    } catch (err) {
+    } catch {
       setHistoryError('Unable to load previous check-ins. Please try again.');
     } finally {
       setHistoryLoading(false);
@@ -528,7 +547,7 @@ export const DailyCheckin: React.FC = () => {
       // Refresh history
       const updated = await repository.getSymptomCheckins(activeProfile.id);
       setPreviousCheckins(updated);
-    } catch (err) {
+    } catch {
       setSubmitError(
         'Your check-in could not be saved. Your answers have been preserved — please try again.'
       );
