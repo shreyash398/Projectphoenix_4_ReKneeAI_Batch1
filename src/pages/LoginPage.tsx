@@ -70,12 +70,15 @@ export const LoginPage: React.FC = () => {
           <div>
             <div className="flex items-center justify-center gap-2">
               <h1 className="text-xl font-bold text-navy-900 tracking-tight">ReKnee AI</h1>
-              <Badge variant="teal" size="sm">
-                Connected Recovery
+              <Badge variant="warning" size="sm">
+                Prototype / Demo
               </Badge>
             </div>
             <p className="text-xs text-slate-muted mt-1">
-              Secure Post-Operative Knee Rehabilitation Companion
+              Post-Operative Knee Rehabilitation Companion
+            </p>
+            <p className="text-[10px] text-amber-700 mt-1 font-medium">
+              Synthetic data only — not clinically validated
             </p>
           </div>
         </div>

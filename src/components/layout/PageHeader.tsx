@@ -38,8 +38,8 @@ export const PageHeader: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <span className="font-bold text-navy-900 text-sm tracking-tight">ReKnee AI</span>
-              <span className="text-[10px] uppercase font-semibold tracking-wider px-1.5 py-0.5 rounded bg-warm-subtle text-slate-muted border border-warm-border">
-                Companion
+              <span className="text-[10px] uppercase font-semibold tracking-wider px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
+                Prototype
               </span>
             </div>
             <p className="text-[11px] text-slate-muted hidden sm:block">Connected Post-Op Recovery</p>

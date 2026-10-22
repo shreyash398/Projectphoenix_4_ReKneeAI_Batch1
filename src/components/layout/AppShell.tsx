@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { Outlet } from 'react-router-dom';
 import { PageHeader } from './PageHeader';
 import { BottomNavigation } from './BottomNavigation';
+import { DemoBanner } from '../common/DemoBanner';
 import { useAuth } from '../../contexts/AuthContext';
 import { repository } from '../../lib/supabase/repository';
 
@@ -22,6 +23,7 @@ export const AppShell: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-warm-bg text-navy-900 flex flex-col font-sans">
+      <DemoBanner />
       <PageHeader />
 
       {/* Main Content Area with Bottom Padding for Fixed Nav */}

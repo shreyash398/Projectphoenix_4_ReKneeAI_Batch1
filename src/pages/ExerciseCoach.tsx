@@ -879,16 +879,26 @@ export const ExerciseCoach: React.FC = () => {
             />
           )}
 
-          {/* Success Banner */}
-          <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-2.5 text-xs text-emerald-900">
-            <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-            <div>
-              <strong className="block font-semibold">Session Recorded Successfully</strong>
-              <span>
-                Your mobility practice data has been saved and shared with your physical therapy care team.
-              </span>
+          {/* Success Banner - verified save only */}
+          {savedSession && !saveError && (
+            <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-2.5 text-xs text-emerald-900">
+              <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
+              <div>
+                <strong className="block font-semibold">Session Recorded Successfully</strong>
+                <span>
+                  Your mobility practice data has been saved and shared with your physical therapy care team.
+                </span>
+              </div>
             </div>
-          </div>
+          )}
+
+          {/* Saving In-Progress State */}
+          {isSaving && (
+            <div className="p-3 bg-warm-subtle border border-warm-border rounded-xl flex items-center gap-2 text-xs text-slate-muted">
+              <RefreshCw className="w-4 h-4 text-teal-calm animate-spin shrink-0" />
+              <span>Saving session record to your chart...</span>
+            </div>
+          )}
 
           {/* If error occurred during save */}
           {saveError && (
