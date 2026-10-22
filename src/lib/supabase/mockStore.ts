@@ -13,12 +13,15 @@ import {
   Alert,
   AlertAction,
   ClinicianPatientAccess,
+  RecoveryVerification,
+  VerificationAuditAction,
 } from '../../types/database';
 
 export const DEMO_CLINICIAN_ID = 'c1111111-1111-1111-1111-111111111111';
 export const DEMO_PATIENT_ID = 'p2222222-2222-2222-2222-222222222222';
 export const DEMO_PLAN_ID = 'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa';
 export const DEMO_EXERCISE_ID = 'bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb';
+export const DEMO_VERIFICATION_ID = '77777777-7777-7777-7777-777777777771';
 
 // ── Deterministic date helpers (relative to "now") ──────────────
 function daysAgo(n: number): string {
@@ -42,6 +45,8 @@ interface StoreData {
   access: ClinicianPatientAccess[];
   alerts: Alert[];
   alertActions: AlertAction[];
+  verifications: RecoveryVerification[];
+  verificationAuditActions: VerificationAuditAction[];
   activeUserId: string;
 }
 
@@ -360,6 +365,42 @@ const DEMO_ALERTS: Alert[] = [
   },
 ];
 
+// ── Pre-seeded Doctor Verification Request (Ready for Clinician Review) ──
+const DEMO_VERIFICATIONS: RecoveryVerification[] = [
+  {
+    id: DEMO_VERIFICATION_ID,
+    patient_id: DEMO_PATIENT_ID,
+    clinician_id: DEMO_CLINICIAN_ID,
+    recovery_plan_id: DEMO_PLAN_ID,
+    status: 'requested',
+    requested_at: hoursAgo(2),
+    reviewed_at: null,
+    verification_date: null,
+    clinician_name: null,
+    clinician_designation: null,
+    license_identifier: null,
+    verification_note: null,
+    verification_id: 'VER-2026-TKA-001',
+    report_version: '1.0',
+    generated_at: null,
+    document_reference: null,
+    created_at: hoursAgo(2),
+    updated_at: hoursAgo(2),
+  },
+];
+
+const DEMO_VERIFICATION_AUDIT: VerificationAuditAction[] = [
+  {
+    id: '88888888-8888-8888-8888-888888888881',
+    verification_id: DEMO_VERIFICATION_ID,
+    actor_id: DEMO_PATIENT_ID,
+    actor_role: 'patient',
+    action: 'verification_requested',
+    notes: 'Patient submitted request for Doctor Verification of early stage knee mobility protocol.',
+    created_at: hoursAgo(2),
+  },
+];
+
 // ── Default Store Assembly ──────────────────────────────────────
 const DEFAULT_STORE: StoreData = {
   activeUserId: DEMO_PATIENT_ID,
@@ -373,6 +414,8 @@ const DEFAULT_STORE: StoreData = {
   access: DEMO_ACCESS,
   alerts: DEMO_ALERTS,
   alertActions: [],
+  verifications: DEMO_VERIFICATIONS,
+  verificationAuditActions: DEMO_VERIFICATION_AUDIT,
 };
 
 let inMemoryStore: StoreData = JSON.parse(JSON.stringify(DEFAULT_STORE));

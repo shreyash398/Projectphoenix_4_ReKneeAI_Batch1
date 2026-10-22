@@ -305,3 +305,70 @@ values
     now() - interval '1 day'
   )
 on conflict (id) do nothing;
+
+-- ============================================================================
+-- 11. RECOVERY VERIFICATIONS (Sample Doctor Verification Request)
+-- ============================================================================
+insert into recovery_verifications (
+  id,
+  patient_id,
+  clinician_id,
+  recovery_plan_id,
+  status,
+  requested_at,
+  reviewed_at,
+  verification_date,
+  clinician_name,
+  clinician_designation,
+  license_identifier,
+  verification_note,
+  verification_id,
+  report_version,
+  generated_at,
+  created_at
+)
+values
+  (
+    '77777777-7777-7777-7777-777777777771',
+    'p2222222-2222-2222-2222-222222222222',
+    'c1111111-1111-1111-1111-111111111111',
+    'aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa',
+    'requested',
+    now() - interval '2 hours',
+    null,
+    null,
+    null,
+    null,
+    null,
+    null,
+    'VER-2026-TKA-001',
+    '1.0',
+    null,
+    now() - interval '2 hours'
+  )
+on conflict (id) do nothing;
+
+-- ============================================================================
+-- 12. VERIFICATION AUDIT ACTIONS (Audit Trail Entry)
+-- ============================================================================
+insert into verification_audit_actions (
+  id,
+  verification_id,
+  actor_id,
+  actor_role,
+  action,
+  notes,
+  created_at
+)
+values
+  (
+    '88888888-8888-8888-8888-888888888881',
+    '77777777-7777-7777-7777-777777777771',
+    'p2222222-2222-2222-2222-222222222222',
+    'patient',
+    'verification_requested',
+    'Patient submitted request for Doctor Verification of early stage knee mobility protocol.',
+    now() - interval '2 hours'
+  )
+on conflict (id) do nothing;
+

@@ -259,6 +259,15 @@ export const ClinicianPatientDetail: React.FC = () => {
           </div>
 
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => navigate('/clinician/verifications')}
+              className="text-xs h-7 px-2.5 bg-white border-teal-border text-teal-calm hover:bg-teal-light/50"
+              icon={<FileCheck className="w-3.5 h-3.5" />}
+            >
+              Doctor Verification
+            </Button>
             {unreviewedAlerts.length > 0 ? (
               <Badge variant="error" size="sm" icon={<AlertTriangle className="w-3.5 h-3.5" />}>
                 {unreviewedAlerts.length} Unresolved Alert{unreviewedAlerts.length > 1 ? 's' : ''}

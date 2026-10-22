@@ -15,6 +15,8 @@ import { ProgressHistory } from './pages/ProgressHistory';
 import { ClinicianDashboard } from './pages/ClinicianDashboard';
 import { ClinicianPatientDetail } from './pages/ClinicianPatientDetail';
 import { ClinicianAlerts } from './pages/ClinicianAlerts';
+import { PatientVerifiedReports } from './pages/PatientVerifiedReports';
+import { ClinicianVerificationRequests } from './pages/ClinicianVerificationRequests';
 import { LoginPage } from './pages/LoginPage';
 import { ForbiddenPage } from './pages/ForbiddenPage';
 
@@ -72,6 +74,14 @@ export const App: React.FC = () => {
                     </ProtectedRoute>
                   }
                 />
+                <Route
+                  path="/reports"
+                  element={
+                    <ProtectedRoute allowedRole="patient">
+                      <PatientVerifiedReports />
+                    </ProtectedRoute>
+                  }
+                />
 
                 {/* Clinician Routes (Gated by Clinician Role) */}
                 <Route
@@ -111,6 +121,14 @@ export const App: React.FC = () => {
                   element={
                     <ProtectedRoute allowedRole="clinician">
                       <ClinicianAlerts />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/clinician/verifications"
+                  element={
+                    <ProtectedRoute allowedRole="clinician">
+                      <ClinicianVerificationRequests />
                     </ProtectedRoute>
                   }
                 />

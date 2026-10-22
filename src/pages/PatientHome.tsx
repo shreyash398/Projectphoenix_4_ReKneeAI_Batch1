@@ -14,6 +14,7 @@ import {
   FileText,
   Flame,
   Layers,
+  FileCheck2,
 } from 'lucide-react';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
@@ -303,6 +304,21 @@ export const PatientHome: React.FC = () => {
               Dr. Marcus Patel, DPT
             </span>
           </div>
+        </div>
+
+        {/* Doctor Verification Quick Link */}
+        <div className="pt-2 border-t border-warm-border/60 flex items-center justify-between text-xs">
+          <span className="text-slate-muted flex items-center gap-1.5 text-[11px]">
+            <FileCheck2 className="w-3.5 h-3.5 text-teal-calm" />
+            <span>Doctor-Verified Activity Report</span>
+          </span>
+          <button
+            onClick={() => navigate('/reports')}
+            className="text-xs font-semibold text-teal-calm hover:text-teal-hover flex items-center gap-1"
+          >
+            <span>View Reports</span>
+            <ChevronRight className="w-3.5 h-3.5" />
+          </button>
         </div>
       </Card>
 

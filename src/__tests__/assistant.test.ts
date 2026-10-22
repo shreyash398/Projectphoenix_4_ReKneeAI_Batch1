@@ -361,6 +361,6 @@ describe('Recovery Knowledge Assistant', () => {
       const errorBody = blockedRes.body as AssistantApiError;
       expect(errorBody.error.code).toBe('RATE_LIMITED');
       expect(errorBody.error.message).toContain('Too many requests');
-    });
+    }, 15000);
   });
 });

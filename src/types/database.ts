@@ -132,3 +132,45 @@ export interface AlertAction {
   notes: string;
   created_at: string;
 }
+
+export type VerificationStatus = 'requested' | 'approved' | 'rejected' | 'revoked';
+
+export interface RecoveryVerification {
+  id: string;
+  patient_id: string;
+  clinician_id: string;
+  recovery_plan_id: string;
+  status: VerificationStatus;
+  requested_at: string;
+  reviewed_at?: string | null;
+  verification_date?: string | null;
+  clinician_name?: string | null;
+  clinician_designation?: string | null;
+  license_identifier?: string | null;
+  verification_note?: string | null;
+  verification_id?: string | null;
+  report_version: string;
+  generated_at?: string | null;
+  document_reference?: string | null;
+  created_at: string;
+  updated_at: string;
+}
+
+export type VerificationAuditActionType =
+  | 'verification_requested'
+  | 'clinician_opened_request'
+  | 'approved'
+  | 'rejected'
+  | 'report_generated'
+  | 'report_downloaded';
+
+export interface VerificationAuditAction {
+  id: string;
+  verification_id: string;
+  actor_id: string;
+  actor_role: UserRole;
+  action: VerificationAuditActionType;
+  notes?: string | null;
+  created_at: string;
+}
+

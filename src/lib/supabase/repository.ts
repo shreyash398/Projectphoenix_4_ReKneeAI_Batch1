@@ -13,6 +13,8 @@ import {
   Alert,
   AlertAction,
   UserRole,
+  RecoveryVerification,
+  VerificationAuditAction,
 } from '../../types/database';
 import { supabase, isSupabaseConfigured } from './client';
 import {
@@ -656,5 +658,474 @@ export const repository = {
       .filter((a) => a.clinician_id === clinicianId && a.status === 'active')
       .map((a) => a.patient_id);
     return store.profiles.filter((p) => authorizedIds.includes(p.id));
+  },
+
+  // ==========================================================================
+  // RECOVERY VERIFICATIONS & AUDIT TRAIL (DOCTOR-VERIFIED COMPLETION REPORT)
+  // ==========================================================================
+
+  /**
+   * Retrieves verification records for a patient or clinician.
+   * - Patient: Only their own verifications.
+   * - Clinician: Only verifications of patients with authorized relationship.
+   */
+  async getVerifications(patientId?: string): Promise<RecoveryVerification[]> {
+    const current = this.getCurrentProfile();
+    if (!current) return [];
+
+    if (current.role === 'patient') {
+      const targetId = current.id;
+      if (patientId && patientId !== current.id) {
+        console.warn('Security Notice: Patient cannot access another patient verifications.');
+        return [];
+      }
+      if (isSupabaseConfigured && supabase) {
+        try {
+          const { data, error } = await supabase
+            .from('recovery_verifications')
+            .select('*')
+            .eq('patient_id', targetId)
+            .order('created_at', { ascending: false });
+          if (!error && data) return data as RecoveryVerification[];
+        } catch (err) {
+          console.warn('Supabase getVerifications error:', err);
+        }
+      }
+      const store = getStore();
+      return (store.verifications || [])
+        .filter((v) => v.patient_id === targetId)
+        .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    }
+
+    if (current.role === 'clinician') {
+      if (patientId && !this.isClinicianAuthorizedForPatient(current.id, patientId)) {
+        console.warn('Security Notice: Clinician is not authorized for patient verifications.');
+        return [];
+      }
+
+      if (isSupabaseConfigured && supabase) {
+        try {
+          let query = supabase.from('recovery_verifications').select('*').order('created_at', { ascending: false });
+          if (patientId) {
+            query = query.eq('patient_id', patientId);
+          }
+          const { data, error } = await query;
+          if (!error && data) {
+            return (data as RecoveryVerification[]).filter((v) =>
+              this.isClinicianAuthorizedForPatient(current.id, v.patient_id)
+            );
+          }
+        } catch (err) {
+          console.warn('Supabase getVerifications error:', err);
+        }
+      }
+
+      const store = getStore();
+      const authPatientIds = store.access
+        .filter((a) => a.clinician_id === current.id && a.status === 'active')
+        .map((a) => a.patient_id);
+
+      let list = (store.verifications || []).filter((v) => authPatientIds.includes(v.patient_id));
+      if (patientId) {
+        list = list.filter((v) => v.patient_id === patientId);
+      }
+      return list.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+    }
+
+    return [];
+  },
+
+  /**
+   * Retrieves a single verification by ID with authorization check.
+   */
+  async getVerificationById(verificationId: string): Promise<RecoveryVerification | null> {
+    const current = this.getCurrentProfile();
+    if (!current) return null;
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('recovery_verifications')
+          .select('*')
+          .eq('id', verificationId)
+          .maybeSingle();
+        if (!error && data) {
+          const v = data as RecoveryVerification;
+          if (current.role === 'patient' && v.patient_id !== current.id) return null;
+          if (current.role === 'clinician' && !this.isClinicianAuthorizedForPatient(current.id, v.patient_id)) return null;
+          return v;
+        }
+      } catch (err) {
+        console.warn('Supabase getVerificationById error:', err);
+      }
+    }
+
+    const store = getStore();
+    const v = (store.verifications || []).find((item) => item.id === verificationId);
+    if (!v) return null;
+
+    if (current.role === 'patient' && v.patient_id !== current.id) {
+      console.warn('Security Notice: Patient cannot view another patient verification.');
+      return null;
+    }
+    if (current.role === 'clinician' && !this.isClinicianAuthorizedForPatient(current.id, v.patient_id)) {
+      console.warn('Security Notice: Clinician is not authorized for this patient verification.');
+      return null;
+    }
+
+    return v;
+  },
+
+  /**
+   * Requests Doctor Verification for a recovery plan.
+   * Can only be called by the patient for their own recovery plan.
+   * NEVER marks as doctor verified automatically.
+   */
+  async requestVerification(patientId: string, planId: string): Promise<RecoveryVerification> {
+    const current = this.getCurrentProfile();
+    if (!current) {
+      throw new Error('Unauthorized: Authentication required.');
+    }
+    if (current.role === 'patient' && current.id !== patientId) {
+      throw new Error('Unauthorized: Patients can only request verification for their own recovery plan.');
+    }
+
+    const store = getStore();
+    // Resolve authorized clinician for patient
+    const access = store.access.find((a) => a.patient_id === patientId && a.status === 'active');
+    const clinicianId = access ? access.clinician_id : DEMO_CLINICIAN_ID;
+
+    const id = 'ver-' + Date.now();
+    const now = new Date().toISOString();
+    const randomCode = Math.floor(1000 + Math.random() * 9000);
+    const verificationCode = `VER-${new Date().getFullYear()}-TKA-${randomCode}`;
+
+    const newVerification: RecoveryVerification = {
+      id,
+      patient_id: patientId,
+      clinician_id: clinicianId,
+      recovery_plan_id: planId,
+      status: 'requested',
+      requested_at: now,
+      reviewed_at: null,
+      verification_date: null,
+      clinician_name: null,
+      clinician_designation: null,
+      license_identifier: null,
+      verification_note: null,
+      verification_id: verificationCode,
+      report_version: '1.0',
+      generated_at: null,
+      document_reference: null,
+      created_at: now,
+      updated_at: now,
+    };
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('recovery_verifications')
+          .insert(newVerification)
+          .select()
+          .single();
+        if (!error && data) {
+          await this.logVerificationAuditAction({
+            verification_id: data.id,
+            actor_id: current.id,
+            actor_role: current.role,
+            action: 'verification_requested',
+            notes: 'Patient submitted doctor verification request for completed recovery activity.',
+          });
+          return data as RecoveryVerification;
+        }
+      } catch (err) {
+        console.warn('Supabase requestVerification error:', err);
+      }
+    }
+
+    if (!store.verifications) store.verifications = [];
+    store.verifications.unshift(newVerification);
+    saveStore(store);
+
+    await this.logVerificationAuditAction({
+      verification_id: newVerification.id,
+      actor_id: current.id,
+      actor_role: current.role,
+      action: 'verification_requested',
+      notes: 'Patient submitted doctor verification request for completed recovery activity.',
+    });
+
+    return newVerification;
+  },
+
+  /**
+   * Clinician marks a verification request as reviewed / opened.
+   */
+  async recordClinicianOpenedRequest(verificationId: string): Promise<void> {
+    const current = this.getCurrentProfile();
+    if (!current || current.role !== 'clinician') return;
+
+    await this.logVerificationAuditAction({
+      verification_id: verificationId,
+      actor_id: current.id,
+      actor_role: 'clinician',
+      action: 'clinician_opened_request',
+      notes: 'Clinician opened verification request for review.',
+    });
+  },
+
+  /**
+   * Clinician reviews and approves a verification request.
+   * Requires explicit confirmation and clinician identity.
+   * ONLY clinicians can approve.
+   */
+  async approveVerification(params: {
+    verificationId: string;
+    clinicianName: string;
+    clinicianDesignation: string;
+    licenseIdentifier?: string;
+    verificationNote?: string;
+  }): Promise<RecoveryVerification> {
+    const current = this.getCurrentProfile();
+    if (!current || current.role !== 'clinician') {
+      throw new Error('Unauthorized: Only authorized clinicians can approve recovery verification requests.');
+    }
+
+    const verification = await this.getVerificationById(params.verificationId);
+    if (!verification) {
+      throw new Error('Verification request not found.');
+    }
+
+    if (!this.isClinicianAuthorizedForPatient(current.id, verification.patient_id)) {
+      throw new Error('Unauthorized: Clinician is not authorized for this patient.');
+    }
+
+    const now = new Date().toISOString();
+    const today = now.split('T')[0];
+
+    const updated: RecoveryVerification = {
+      ...verification,
+      status: 'approved',
+      reviewed_at: now,
+      verification_date: today,
+      clinician_id: current.id,
+      clinician_name: params.clinicianName.trim(),
+      clinician_designation: params.clinicianDesignation.trim(),
+      license_identifier: params.licenseIdentifier?.trim() || null,
+      verification_note: params.verificationNote?.trim() || null,
+      generated_at: now,
+      document_reference: `reports/${verification.patient_id}/${verification.verification_id}.pdf`,
+      updated_at: now,
+    };
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('recovery_verifications')
+          .update(updated)
+          .eq('id', params.verificationId)
+          .select()
+          .single();
+        if (!error && data) {
+          await this.logVerificationAuditAction({
+            verification_id: params.verificationId,
+            actor_id: current.id,
+            actor_role: 'clinician',
+            action: 'approved',
+            notes: `Approved by ${params.clinicianName} (${params.clinicianDesignation}). ${params.verificationNote || ''}`.trim(),
+          });
+          await this.logVerificationAuditAction({
+            verification_id: params.verificationId,
+            actor_id: current.id,
+            actor_role: 'clinician',
+            action: 'report_generated',
+            notes: `Doctor-Verified Recovery Activity Report generated (${updated.verification_id}).`,
+          });
+          return data as RecoveryVerification;
+        }
+      } catch (err) {
+        console.warn('Supabase approveVerification error:', err);
+      }
+    }
+
+    const store = getStore();
+    const idx = (store.verifications || []).findIndex((v) => v.id === params.verificationId);
+    if (idx !== -1) {
+      store.verifications[idx] = updated;
+      saveStore(store);
+    }
+
+    await this.logVerificationAuditAction({
+      verification_id: params.verificationId,
+      actor_id: current.id,
+      actor_role: 'clinician',
+      action: 'approved',
+      notes: `Approved by ${params.clinicianName} (${params.clinicianDesignation}). ${params.verificationNote || ''}`.trim(),
+    });
+
+    await this.logVerificationAuditAction({
+      verification_id: params.verificationId,
+      actor_id: current.id,
+      actor_role: 'clinician',
+      action: 'report_generated',
+      notes: `Doctor-Verified Recovery Activity Report generated (${updated.verification_id}).`,
+    });
+
+    return updated;
+  },
+
+  /**
+   * Clinician rejects / requests clarification on a verification request.
+   */
+  async rejectVerification(params: {
+    verificationId: string;
+    reason: string;
+  }): Promise<RecoveryVerification> {
+    const current = this.getCurrentProfile();
+    if (!current || current.role !== 'clinician') {
+      throw new Error('Unauthorized: Only authorized clinicians can reject verification requests.');
+    }
+
+    const verification = await this.getVerificationById(params.verificationId);
+    if (!verification) {
+      throw new Error('Verification request not found.');
+    }
+
+    if (!this.isClinicianAuthorizedForPatient(current.id, verification.patient_id)) {
+      throw new Error('Unauthorized: Clinician is not authorized for this patient.');
+    }
+
+    const now = new Date().toISOString();
+    const updated: RecoveryVerification = {
+      ...verification,
+      status: 'rejected',
+      reviewed_at: now,
+      clinician_id: current.id,
+      verification_note: params.reason.trim(),
+      updated_at: now,
+    };
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('recovery_verifications')
+          .update(updated)
+          .eq('id', params.verificationId)
+          .select()
+          .single();
+        if (!error && data) {
+          await this.logVerificationAuditAction({
+            verification_id: params.verificationId,
+            actor_id: current.id,
+            actor_role: 'clinician',
+            action: 'rejected',
+            notes: `Request rejected/clarification requested: ${params.reason.trim()}`,
+          });
+          return data as RecoveryVerification;
+        }
+      } catch (err) {
+        console.warn('Supabase rejectVerification error:', err);
+      }
+    }
+
+    const store = getStore();
+    const idx = (store.verifications || []).findIndex((v) => v.id === params.verificationId);
+    if (idx !== -1) {
+      store.verifications[idx] = updated;
+      saveStore(store);
+    }
+
+    await this.logVerificationAuditAction({
+      verification_id: params.verificationId,
+      actor_id: current.id,
+      actor_role: 'clinician',
+      action: 'rejected',
+      notes: `Request rejected/clarification requested: ${params.reason.trim()}`,
+    });
+
+    return updated;
+  },
+
+  /**
+   * Records that a verified report was downloaded by an authorized user.
+   */
+  async recordReportDownload(verificationId: string): Promise<void> {
+    const current = this.getCurrentProfile();
+    if (!current) return;
+
+    await this.logVerificationAuditAction({
+      verification_id: verificationId,
+      actor_id: current.id,
+      actor_role: current.role,
+      action: 'report_downloaded',
+      notes: `Verified report downloaded by ${current.role} (${current.full_name}).`,
+    });
+  },
+
+  /**
+   * Writes an immutable audit entry for verification actions.
+   */
+  async logVerificationAuditAction(actionData: Omit<VerificationAuditAction, 'id' | 'created_at'>): Promise<VerificationAuditAction> {
+    const id = 'aud-' + Date.now() + '-' + Math.floor(Math.random() * 1000);
+    const created_at = new Date().toISOString();
+    const newAction: VerificationAuditAction = { ...actionData, id, created_at };
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('verification_audit_actions')
+          .insert(newAction)
+          .select()
+          .single();
+        if (!error && data) return data as VerificationAuditAction;
+      } catch (err) {
+        console.warn('Supabase logVerificationAuditAction error:', err);
+      }
+    }
+
+    const store = getStore();
+    if (!store.verificationAuditActions) store.verificationAuditActions = [];
+    store.verificationAuditActions.unshift(newAction);
+    saveStore(store);
+    return newAction;
+  },
+
+  /**
+   * Retrieves audit actions for a verification.
+   * Accessible by patient who owns the verification or assigned clinician.
+   */
+  async getVerificationAuditActions(verificationId: string): Promise<VerificationAuditAction[]> {
+    const current = this.getCurrentProfile();
+    if (!current) return [];
+
+    const verification = await this.getVerificationById(verificationId);
+    if (!verification) return [];
+
+    if (current.role === 'patient' && verification.patient_id !== current.id) {
+      console.warn('Security Notice: Patient cannot access another patient audit history.');
+      return [];
+    }
+    if (current.role === 'clinician' && !this.isClinicianAuthorizedForPatient(current.id, verification.patient_id)) {
+      console.warn('Security Notice: Clinician is not authorized for patient audit history.');
+      return [];
+    }
+
+    if (isSupabaseConfigured && supabase) {
+      try {
+        const { data, error } = await supabase
+          .from('verification_audit_actions')
+          .select('*')
+          .eq('verification_id', verificationId)
+          .order('created_at', { ascending: false });
+        if (!error && data) return data as VerificationAuditAction[];
+      } catch (err) {
+        console.warn('Supabase getVerificationAuditActions error:', err);
+      }
+    }
+
+    const store = getStore();
+    return (store.verificationAuditActions || [])
+      .filter((a) => a.verification_id === verificationId)
+      .sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
   },
 };

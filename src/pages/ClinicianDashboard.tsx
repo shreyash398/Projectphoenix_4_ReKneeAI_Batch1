@@ -317,6 +317,12 @@ export const ClinicianDashboard: React.FC = () => {
               </span>
             )}
           </button>
+          <button
+            onClick={() => navigate('/clinician/verifications')}
+            className="px-3 py-1.5 text-xs font-semibold text-slate-muted hover:text-navy-900 rounded-lg transition-all"
+          >
+            <span>Verifications</span>
+          </button>
         </div>
       </div>
 

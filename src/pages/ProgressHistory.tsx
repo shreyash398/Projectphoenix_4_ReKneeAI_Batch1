@@ -14,6 +14,7 @@ import {
   TrendingDown,
   BarChart3,
   CalendarCheck2,
+  FileCheck2,
 } from 'lucide-react';
 import {
   LineChart,
@@ -232,6 +233,7 @@ export const ProgressHistory: React.FC = () => {
   return (
     <div className="space-y-5 max-w-xl mx-auto pb-12">
       {/* Top Header */}
+      {/* Top Bar with Navigation and Verified Reports Link */}
       <div className="flex items-center justify-between">
         <button
           onClick={() => navigate('/')}
@@ -241,9 +243,20 @@ export const ProgressHistory: React.FC = () => {
           <span>Home</span>
         </button>
 
-        <Badge variant="teal" icon={<BarChart3 className="w-3.5 h-3.5" />}>
-          Recovery Activity
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/reports')}
+            className="text-xs h-7 px-2.5 bg-white border-teal-border text-teal-calm hover:bg-teal-light/50"
+            icon={<FileCheck2 className="w-3.5 h-3.5" />}
+          >
+            Verified Reports
+          </Button>
+          <Badge variant="teal" icon={<BarChart3 className="w-3.5 h-3.5" />}>
+            Recovery Activity
+          </Badge>
+        </div>
       </div>
 
       <div>
