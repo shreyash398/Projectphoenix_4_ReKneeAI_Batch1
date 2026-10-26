@@ -329,7 +329,17 @@ export const ClinicianAlerts: React.FC = () => {
                   </div>
 
                   {/* Clinician Action Buttons */}
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    {alert.patient_id && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        onClick={() => navigate(`/clinician/patients/${alert.patient_id}`)}
+                      >
+                        Review Patient
+                      </Button>
+                    )}
+
                     {alert.status === 'new' && (
                       <Button
                         size="sm"
@@ -351,7 +361,7 @@ export const ClinicianAlerts: React.FC = () => {
                         }}
                         icon={<FileCheck className="w-3.5 h-3.5" />}
                       >
-                        Review & Follow Up
+                        Review Alert
                       </Button>
                     ) : (
                       <span className="text-[11px] text-status-success font-semibold flex items-center gap-1 py-1">

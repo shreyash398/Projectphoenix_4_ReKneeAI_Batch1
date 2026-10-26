@@ -199,29 +199,34 @@ const PainScaleCard: React.FC<{
   const tier = getPainTier(value);
 
   return (
-    <Card>
-      <div className="flex items-start justify-between mb-2 gap-2">
+    <Card className="p-6 border-slate-200/80 shadow-soft">
+      <div className="flex items-start justify-between mb-3 gap-2">
         <div>
-          <label
-            htmlFor="pain-slider"
-            className="text-xs font-bold text-navy-900 uppercase tracking-wider"
-          >
-            Step 1 — Knee Pain Level
-          </label>
-          <p className="text-[11px] text-slate-muted mt-0.5">
-            Rate your pain right now, from 0 (none) to 10 (worst imaginable)
+          <span className="text-[11px] font-bold text-teal-calm uppercase tracking-wider block">
+            Joint Comfort Score
+          </span>
+          <h2 className="text-base font-bold text-navy-900 mt-0.5">
+            Knee Pain Level
+          </h2>
+          <p className="text-xs text-slate-500 mt-0.5">
+            Rate your joint discomfort from 0 (no pain) to 10 (severe)
           </p>
         </div>
-        <span
-          className={`text-sm font-bold px-3 py-1 rounded-full flex-shrink-0 border ${tier.bg} ${tier.color} ${tier.border}`}
-          aria-live="polite"
-        >
-          {value} / 10
-        </span>
+        <div className="text-right">
+          <span
+            className={`text-base font-extrabold px-3.5 py-1.5 rounded-full inline-flex border tabular-nums ${tier.bg} ${tier.color} ${tier.border} shadow-soft`}
+            aria-live="polite"
+          >
+            {value} / 10
+          </span>
+          <p className="text-[11px] text-slate-400 font-medium mt-1">
+            {value <= 3 ? 'Mild / Stable' : value <= 7 ? 'Moderate' : 'Elevated'}
+          </p>
+        </div>
       </div>
 
-      {/* Visual pain bar */}
-      <div className="relative mb-4 pt-1">
+      {/* Visual pain slider */}
+      <div className="relative mb-5 pt-2">
         <input
           id="pain-slider"
           type="range"
@@ -230,53 +235,63 @@ const PainScaleCard: React.FC<{
           step={1}
           value={value}
           onChange={(e) => onChange(parseInt(e.target.value, 10))}
-          className="w-full h-3 rounded-lg appearance-none cursor-pointer accent-teal-calm focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-calm"
+          className="w-full h-3 rounded-lg appearance-none cursor-pointer accent-teal-calm bg-slate-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-teal-calm"
           aria-valuemin={0}
           aria-valuemax={10}
           aria-valuenow={value}
           aria-label="Pain scale 0 to 10"
         />
-        <div className="flex justify-between text-[10px] text-slate-subtle mt-2 font-medium select-none">
-          <span>0 – None</span>
-          <span>3 – Mild</span>
-          <span>5 – Moderate</span>
-          <span>8 – Severe</span>
-          <span>10 – Worst</span>
+        <div className="flex justify-between text-[11px] text-slate-400 mt-2 font-medium select-none px-1">
+          <span>0 (None)</span>
+          <span>3 (Mild)</span>
+          <span>5 (Moderate)</span>
+          <span>8 (Severe)</span>
+          <span>10 (Worst)</span>
         </div>
 
-        {/* Discrete Quick Tap Number Buttons for Mobile Accessibility */}
-        <div className="grid grid-cols-11 gap-1 pt-2.5">
-          {Array.from({ length: 11 }, (_, i) => (
-            <button
-              key={i}
-              type="button"
-              onClick={() => onChange(i)}
-              className={`min-h-[36px] py-1 text-xs font-semibold rounded-lg border transition-all ${
-                value === i
-                  ? 'bg-teal-calm text-white border-teal-calm shadow-sm font-bold'
-                  : 'bg-warm-bg text-slate-muted border-warm-border hover:bg-white hover:text-navy-900'
-              }`}
-              aria-label={`Select pain score ${i}`}
-            >
-              {i}
-            </button>
-          ))}
+        {/* Discrete Tap Numbers */}
+        <div className="grid grid-cols-11 gap-1.5 pt-4">
+          {Array.from({ length: 11 }, (_, i) => {
+            const isSelected = value === i;
+            return (
+              <button
+                key={i}
+                type="button"
+                onClick={() => onChange(i)}
+                className={`min-h-[38px] text-xs font-bold rounded-xl border transition-all duration-150 ${
+                  isSelected
+                    ? i >= 8
+                      ? 'bg-status-error text-white border-status-error shadow-card'
+                      : 'bg-teal-calm text-white border-teal-calm shadow-card scale-105'
+                    : 'bg-slate-50 text-slate-600 border-slate-200/80 hover:bg-white hover:border-slate-300'
+                }`}
+                aria-label={`Select pain score ${i}`}
+              >
+                {i}
+              </button>
+            );
+          })}
         </div>
       </div>
 
-      {/* Descriptor */}
-      <p className={`text-xs font-medium px-3 py-2 rounded-lg ${tier.bg} ${tier.color}`}>
-        {PAIN_DESCRIPTORS[value]}
-      </p>
+      {/* Descriptor pill */}
+      <div className={`p-3 rounded-xl border text-xs font-medium flex items-center gap-2 ${tier.bg} ${tier.color} ${tier.border}`}>
+        <span className="w-2 h-2 rounded-full bg-current" />
+        <span>{PAIN_DESCRIPTORS[value]}</span>
+      </div>
 
-      {/* High-pain advisory (not a diagnosis) */}
+      {/* High-pain calm advisory */}
       {value >= 8 && (
-        <div className="mt-3 flex items-start gap-2 p-3 bg-orange-50 border border-orange-200 rounded-lg">
-          <AlertTriangle className="w-4 h-4 text-orange-600 flex-shrink-0 mt-0.5" />
-          <p className="text-xs text-orange-800">
-            Your score is in the severe range. Your care team may be notified to review your
-            recovery. Please contact your care team if you are concerned.
-          </p>
+        <div className="mt-3.5 flex items-start gap-3 p-3.5 bg-amber-50/80 border border-amber-200 rounded-xl text-xs text-amber-900 shadow-soft">
+          <AlertTriangle className="w-4 h-4 text-amber-600 shrink-0 mt-0.5" />
+          <div>
+            <p className="font-semibold text-amber-900">
+              Your care team has been notified for review.
+            </p>
+            <p className="text-[11px] text-amber-700 mt-0.5">
+              High pain triggers a clinical triage signal so your physical therapist can assess your post-operative recovery plan.
+            </p>
+          </div>
         </div>
       )}
 
@@ -294,35 +309,21 @@ const SymptomCheckbox: React.FC<{
   checked: boolean;
   onChange: (checked: boolean) => void;
 }> = ({ field, checked, onChange }) => {
-  const tierStyles = {
-    routine: {
-      border: 'border-warm-border hover:bg-warm-subtle/50',
-      checkClass: 'text-teal-calm focus:ring-teal-calm border-warm-border',
-      bg: '',
-    },
-    watch: {
-      border: 'border-amber-200 bg-amber-50/30 hover:bg-amber-50/60',
-      checkClass: 'text-amber-600 focus:ring-amber-500 border-amber-300',
-      bg: '',
-    },
-    urgent: {
-      border: 'border-red-200 bg-rose-50/30 hover:bg-rose-50/60',
-      checkClass: 'text-rose-600 focus:ring-rose-500 border-rose-300',
-      bg: '',
-    },
-  };
-
-  const s = tierStyles[field.tier];
-
   return (
     <label
-      className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-colors ${s.border}`}
+      className={`flex items-start gap-3 p-3 rounded-xl border cursor-pointer transition-all duration-150 ${
+        checked
+          ? field.tier === 'urgent'
+            ? 'border-rose-300 bg-rose-50/60 shadow-soft'
+            : 'border-teal-calm bg-teal-light shadow-soft'
+          : 'border-slate-200/80 bg-white hover:bg-slate-50'
+      }`}
     >
       <input
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className={`w-4.5 h-4.5 mt-0.5 flex-shrink-0 rounded ${s.checkClass} transition-colors`}
+        className="w-4 h-4 mt-0.5 shrink-0 rounded text-teal-calm focus:ring-teal-calm border-slate-300 transition-colors"
       />
       <div className="text-xs leading-snug">
         <span className="font-semibold text-navy-900 flex items-center gap-1.5 flex-wrap">
@@ -651,12 +652,14 @@ export const DailyCheckin: React.FC = () => {
       {/* Symptom Selection */}
       <Card>
         <div className="mb-4">
-          <h3 className="text-xs font-bold text-navy-900 uppercase tracking-wider">
-            Step 2 — Symptoms Today
+          <span className="text-[11px] font-bold text-teal-calm uppercase tracking-wider block">
+            Symptom Assessment
+          </span>
+          <h3 className="text-base font-bold text-navy-900 mt-0.5">
+            Anything concerning?
           </h3>
-          <p className="text-[11px] text-slate-muted mt-1">
-            Select all sensations you have experienced around your knee or leg today.
-            Selecting nothing is a valid response.
+          <p className="text-xs text-slate-500 mt-0.5">
+            Select any symptoms or sensations you have noticed around your knee today.
           </p>
         </div>
 
@@ -804,10 +807,14 @@ export const DailyCheckin: React.FC = () => {
       </div>
 
       <div>
-        <h1 className="text-xl font-bold text-navy-900">Today's Symptom Log</h1>
-        <p className="text-xs text-slate-muted mt-0.5">
-          Your daily responses help your care team monitor joint health and catch recovery
-          concerns early.
+        <p className="text-xs uppercase font-bold tracking-wider text-teal-calm">
+          Daily Recovery Log
+        </p>
+        <h1 className="text-2xl font-extrabold text-navy-900 tracking-tight mt-1">
+          How are you feeling today?
+        </h1>
+        <p className="text-xs sm:text-sm text-slate-500 mt-1">
+          Your daily responses help your care team monitor joint mobility and track symptoms.
         </p>
       </div>
 

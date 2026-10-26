@@ -6,7 +6,6 @@ import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Send,
-  Sparkles,
   ShieldCheck,
   AlertCircle,
   ArrowLeft,
@@ -29,12 +28,12 @@ import { ChatMessage } from '../lib/assistant/types';
 import { KnowledgeArticle } from '../types/database';
 
 const SUGGESTED_PROMPTS = [
+  "What's today's recovery plan?",
+  'What should I know about my exercise?',
+  'When should I contact my care team?',
   'How often should I put ice on my knee?',
   'Is sharp pain during exercise normal?',
   'What are the warning signs of infection?',
-  'What should I do if my calf is swollen and tender?',
-  'Can I double my pain medication dosage?',
-  'Can you diagnose my knee and tell me if I am cured?',
 ];
 
 export const KnowledgeAssistant: React.FC = () => {
@@ -220,46 +219,41 @@ export const KnowledgeAssistant: React.FC = () => {
   };
 
   return (
-    <div className="flex flex-col h-[calc(100vh-140px)] max-w-2xl mx-auto space-y-3 pb-2 px-2 sm:px-0">
+    <div className="flex flex-col h-[calc(100vh-140px)] max-w-4xl mx-auto space-y-4 pb-2 px-2 sm:px-0">
       {/* Top Header */}
-      <div className="flex items-center justify-between shrink-0">
-        <button
-          onClick={() => navigate('/')}
-          className="flex items-center gap-1.5 text-xs font-semibold text-slate-muted hover:text-navy-900 transition-colors p-1 rounded-lg"
-          aria-label="Back to home"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Home</span>
-        </button>
+      <div className="flex items-center justify-between shrink-0 pb-3 border-b border-slate-200/60">
+        <div>
+          <button
+            onClick={() => navigate('/')}
+            className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-navy-900 transition-colors p-1 rounded-lg mb-1"
+            aria-label="Back to home"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span>Back to Recovery Home</span>
+          </button>
+          <h1 className="text-2xl font-extrabold text-navy-900 tracking-tight">
+            Recovery Assistant
+          </h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+            Ask about your approved recovery information and post-operative protocol.
+          </p>
+        </div>
 
         <div className="flex items-center gap-2">
           <Badge variant="teal" icon={<ShieldCheck className="w-3.5 h-3.5" />}>
-            Approved Knowledge Only
+            Approved Clinical Sources
           </Badge>
 
           {messages.length > 1 && (
             <button
               onClick={handleClearSession}
               title="Clear current view"
-              className="text-slate-subtle hover:text-navy-900 p-1.5 rounded-lg hover:bg-warm-subtle transition-colors text-xs flex items-center gap-1"
+              className="text-slate-400 hover:text-navy-900 p-2 rounded-xl hover:bg-slate-100 transition-colors text-xs flex items-center gap-1.5 border border-slate-200"
             >
               <Trash2 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline">Reset</span>
+              <span className="hidden sm:inline font-medium">Clear</span>
             </button>
           )}
-        </div>
-      </div>
-
-      {/* Safety & Protocol Banner */}
-      <div className="bg-warm-subtle/80 border border-warm-border rounded-xl p-3 text-xs text-slate-muted flex items-start gap-2.5 shrink-0 shadow-soft">
-        <Sparkles className="w-4 h-4 text-teal-calm shrink-0 mt-0.5" />
-        <div className="space-y-0.5 leading-relaxed">
-          <p className="text-navy-900 font-semibold">
-            Grounded Recovery Knowledge Companion
-          </p>
-          <p>
-            Answers are synthesized strictly from approved orthopedic guidelines with verified citations. ReKnee AI does <strong>not</strong> provide medical diagnoses, alter prescriptions, or replace clinical care.
-          </p>
         </div>
       </div>
 
@@ -420,21 +414,29 @@ export const KnowledgeAssistant: React.FC = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Suggested Topic Chips */}
-      <div className="shrink-0 space-y-1.5 pt-1">
-        <p className="text-[11px] font-semibold text-slate-muted flex items-center gap-1">
-          <HelpCircle className="w-3 h-3 text-teal-calm" />
-          <span>Approved Topic Prompts:</span>
-        </p>
-        <div className="flex gap-1.5 overflow-x-auto pb-1 no-scrollbar">
-          {SUGGESTED_PROMPTS.map((prompt, idx) => (
+      {/* Suggested Question Cards */}
+      <div className="shrink-0 space-y-2 pt-2">
+        <div className="flex items-center justify-between">
+          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+            <HelpCircle className="w-3.5 h-3.5 text-teal-calm" />
+            <span>Suggested Inquiries</span>
+          </p>
+          <span className="text-[10px] text-slate-400 font-medium">Grounded in Clinical Protocol</span>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          {SUGGESTED_PROMPTS.slice(0, 3).map((prompt, idx) => (
             <button
               key={idx}
+              type="button"
               onClick={() => handleAsk(prompt)}
               disabled={isThinking}
-              className="text-[11px] bg-white border border-warm-border hover:border-teal-calm text-navy-900 px-3 py-1.5 rounded-full whitespace-nowrap shrink-0 shadow-soft transition-colors disabled:opacity-50 hover:bg-warm-subtle"
+              className="text-left p-2.5 rounded-xl bg-white border border-slate-200/90 hover:border-teal-calm hover:bg-teal-50/30 transition-all text-xs text-navy-900 font-medium shadow-soft group disabled:opacity-50"
             >
-              {prompt}
+              <span className="line-clamp-2">{prompt}</span>
+              <span className="text-[10px] font-semibold text-teal-calm block mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                Ask prompt →
+              </span>
             </button>
           ))}
         </div>

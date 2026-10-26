@@ -17,7 +17,6 @@ import {
   Sparkles,
   ShieldCheck,
   Info,
-  Sliders,
   ChevronRight,
   Eye,
 } from 'lucide-react';
@@ -488,16 +487,20 @@ export const ExerciseCoach: React.FC = () => {
     }
   };
 
+  const formattedDuration = `${Math.floor(elapsedSeconds / 60)}:${(elapsedSeconds % 60)
+    .toString()
+    .padStart(2, '0')}`;
+
   return (
-    <div className="space-y-4 max-w-xl mx-auto pb-12">
-      {/* Top Breadcrumb & Status */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+      {/* Top Header & Breadcrumb */}
+      <div className="flex items-center justify-between pb-3 border-b border-slate-200/60">
         <button
           onClick={() => {
             stopCameraStream();
             navigate('/');
           }}
-          className="flex items-center gap-1.5 text-xs font-semibold text-slate-muted hover:text-navy-900 transition-colors"
+          className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-navy-900 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Recovery Home</span>
@@ -507,46 +510,77 @@ export const ExerciseCoach: React.FC = () => {
           variant={isManualDemoMode ? 'warning' : 'teal'}
           icon={<Sparkles className="w-3.5 h-3.5" />}
         >
-          {isManualDemoMode ? 'Guided Demo Mode' : 'AI Pose Landmarker'}
+          {isManualDemoMode ? 'Guided Simulation Mode' : 'Smart Pose Landmarker'}
         </Badge>
       </div>
 
-      {/* Prescribed Exercise Card (From Recovery Plan) */}
-      <Card className="p-4 sm:p-5">
-        <div className="flex items-start justify-between gap-3 mb-2">
-          <div>
-            <span className="text-[10px] uppercase font-bold text-teal-calm tracking-wider block mb-0.5">
-              Prescribed Recovery Plan Exercise
-            </span>
-            <h1 className="text-lg sm:text-xl font-bold text-navy-900">
-              {exercise?.name || 'Seated Knee Flexion & Extension'}
-            </h1>
-          </div>
-          <div className="flex gap-1.5 shrink-0">
-            <Badge variant="teal">Target: {repConfig.targetReps} reps</Badge>
-          </div>
+      <div>
+        <p className="text-xs uppercase font-bold tracking-wider text-teal-calm">
+          Assigned Physical Therapy
+        </p>
+        <h1 className="text-2xl font-extrabold text-navy-900 tracking-tight mt-1">
+          Today's Exercise
+        </h1>
+        <p className="text-xs sm:text-sm text-slate-500 mt-1">
+          {exercise?.instructions ||
+            'Sit upright in a sturdy chair with feet flat on the floor. Gently bend and straighten your operative leg through a comfortable range of motion.'}
+        </p>
+      </div>
+
+      {/* 4 Compact Information Cards around the exercise area */}
+      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
+        <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-soft">
+          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
+            Exercise
+          </span>
+          <p className="text-xs font-bold text-navy-900 mt-1 truncate">
+            {exercise?.name || 'Seated Knee Extension'}
+          </p>
+          <span className="text-[10px] text-teal-calm font-medium">Post-Op Protocol</span>
         </div>
 
-        <p className="text-xs sm:text-sm text-slate-muted leading-relaxed">
-          {exercise?.instructions ||
-            'Sit upright in a sturdy chair with feet flat on the floor. Slowly slide your operative foot back under the chair as far as comfortable to bend your knee. Hold for 2-3 seconds, then gently straighten the leg forward. Repeat smoothly without bouncing.'}
-        </p>
-
-        {/* Transparent Rep Counting Rule Config */}
-        <div className="mt-3 pt-3 border-t border-warm-border flex flex-wrap items-center justify-between gap-2 text-[11px] text-slate-subtle">
-          <div className="flex items-center gap-1.5">
-            <Sliders className="w-3.5 h-3.5 text-teal-calm" />
-            <span>
-              Target Bend: <strong>≤{repConfig.flexionThreshold}°</strong> • Return:{' '}
-              <strong>≥{repConfig.extensionThreshold}°</strong>
-            </span>
-          </div>
-          <span className="text-slate-subtle">
-            Tracking Side:{' '}
-            <strong className="capitalize">{trackedSide !== 'none' ? trackedSide : 'Auto'}</strong>
+        <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-soft">
+          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
+            Progress
+          </span>
+          <p className="text-base font-extrabold text-navy-900 mt-0.5 tabular-nums">
+            {repState.repetitions} / {repConfig.targetReps}{' '}
+            <span className="text-xs font-normal text-slate-500">reps</span>
+          </p>
+          <span className="text-[10px] text-slate-400 font-medium">
+            {repState.repetitions >= repConfig.targetReps ? 'Target Reached ✓' : 'In Progress'}
           </span>
         </div>
-      </Card>
+
+        <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-soft">
+          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
+            Duration
+          </span>
+          <p className="text-base font-extrabold text-navy-900 mt-0.5 font-mono tabular-nums">
+            {formattedDuration}
+          </p>
+          <span className="text-[10px] text-slate-400 font-medium">Active Session</span>
+        </div>
+
+        <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-soft">
+          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
+            Status
+          </span>
+          <div className="flex items-center gap-1.5 mt-1">
+            <span
+              className={`w-2 h-2 rounded-full ${
+                cameraStatus === 'active' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'
+              }`}
+            />
+            <p className="text-xs font-bold text-navy-900">
+              {cameraStatus === 'active' ? 'Tracking Active' : 'Camera Ready'}
+            </p>
+          </div>
+          <span className="text-[10px] text-slate-400 font-medium">
+            Side: {trackedSide !== 'none' ? trackedSide : 'Auto'}
+          </span>
+        </div>
+      </div>
 
       {/* Camera Viewport & Overlays */}
       <Card className="p-2 sm:p-3 relative overflow-hidden bg-navy-950 text-white rounded-2xl shadow-md border-navy-800">

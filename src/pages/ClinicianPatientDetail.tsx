@@ -30,6 +30,7 @@ import { Button } from '../components/common/Button';
 import { Badge, BadgeVariant } from '../components/common/Badge';
 import { Modal } from '../components/common/Modal';
 import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
+import { KneeVisual } from '../components/common/KneeVisual';
 import { repository } from '../lib/supabase/repository';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -218,91 +219,159 @@ export const ClinicianPatientDetail: React.FC = () => {
       ? (checkins.reduce((acc, c) => acc + c.pain_score, 0) / checkins.length).toFixed(1)
       : 'N/A';
   const totalCompletedSessions = sessions.filter((s) => s.status === 'completed').length;
+  const completionPercentage = Math.min(
+    100,
+    Math.round((totalCompletedSessions / Math.max(1, 10)) * 100)
+  );
 
   return (
-    <div className="space-y-5 max-w-4xl mx-auto pb-8">
-      {/* Top Header */}
-      <div className="flex items-center justify-between">
+    <div className="space-y-6 max-w-6xl mx-auto pb-10">
+      {/* ─── Top Navigation & Authorization Bar ──────────────────────── */}
+      <div className="flex items-center justify-between pb-2 border-b border-slate-200/60">
         <button
           onClick={() => navigate('/clinician/patients')}
-          className="flex items-center gap-1.5 text-xs font-semibold text-slate-muted hover:text-navy-900 transition-colors p-1 rounded-lg"
+          className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-navy-900 transition-colors p-1 rounded-xl"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Patient Roster</span>
+          <span>Back to Patient Roster</span>
         </button>
 
-        <Badge variant="teal" icon={<ShieldCheck className="w-3.5 h-3.5" />}>
-          Authorized Clinical Relationship
-        </Badge>
+        <div className="flex items-center gap-2">
+          <Badge variant="teal" icon={<ShieldCheck className="w-3.5 h-3.5" />}>
+            Authorized Clinical Record
+          </Badge>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/clinician/verifications')}
+            className="text-xs h-8 px-3 bg-white border-teal-border text-teal-calm hover:bg-teal-light/50"
+            icon={<FileCheck className="w-3.5 h-3.5" />}
+          >
+            Verification Request
+          </Button>
+        </div>
       </div>
 
-      {/* Patient Profile Banner */}
-      <Card className="p-4 sm:p-5 border-warm-border">
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-full bg-navy-900 text-white flex items-center justify-center font-bold text-lg shadow-soft shrink-0">
-              {patient?.full_name?.charAt(0) || 'P'}
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-lg sm:text-xl font-bold text-navy-900">
-                  {patient?.full_name || 'Patient Chart'}
-                </h1>
-                <Badge variant="neutral" size="sm">
-                  ID: {patientId?.slice(0, 8)}...
+      {/* ─── Patient Profile Header ──────────────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-soft">
+        <div className="flex items-center gap-3.5">
+          <div className="w-12 h-12 rounded-2xl bg-navy-900 text-white flex items-center justify-center font-bold text-lg shadow-soft shrink-0">
+            {patient?.full_name?.charAt(0) || 'P'}
+          </div>
+          <div>
+            <div className="flex items-center gap-2.5">
+              <h1 className="text-xl font-bold text-navy-900 tracking-tight">
+                {patient?.full_name || 'Patient Chart'}
+              </h1>
+              <Badge variant="neutral" size="sm">
+                ID: {patientId?.slice(0, 8)}...
+              </Badge>
+              {unreviewedAlerts.length > 0 ? (
+                <Badge variant="error" size="sm" icon={<AlertTriangle className="w-3.5 h-3.5" />}>
+                  {unreviewedAlerts.length} Active Alert{unreviewedAlerts.length > 1 ? 's' : ''}
                 </Badge>
-              </div>
-              <p className="text-xs text-slate-muted mt-0.5">
-                Active Protocol: <strong className="text-teal-calm">{plan?.title || 'Mobility Protocol'}</strong>
-              </p>
+              ) : (
+                <Badge variant="success" size="sm" icon={<CheckCircle className="w-3.5 h-3.5" />}>
+                  Protocol Stable
+                </Badge>
+              )}
             </div>
-          </div>
-
-          <div className="flex items-center gap-2">
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={() => navigate('/clinician/verifications')}
-              className="text-xs h-7 px-2.5 bg-white border-teal-border text-teal-calm hover:bg-teal-light/50"
-              icon={<FileCheck className="w-3.5 h-3.5" />}
-            >
-              Doctor Verification
-            </Button>
-            {unreviewedAlerts.length > 0 ? (
-              <Badge variant="error" size="sm" icon={<AlertTriangle className="w-3.5 h-3.5" />}>
-                {unreviewedAlerts.length} Unresolved Alert{unreviewedAlerts.length > 1 ? 's' : ''}
-              </Badge>
-            ) : (
-              <Badge variant="success" size="sm" icon={<CheckCircle className="w-3.5 h-3.5" />}>
-                No Active Alerts
-              </Badge>
-            )}
+            <p className="text-xs text-slate-500 mt-1 flex items-center gap-2">
+              <span>Protocol: <strong className="text-teal-calm font-semibold">{plan?.title || 'Right Knee Protocol'}</strong></span>
+              <span className="text-slate-300">·</span>
+              <span>Attending: <strong>Dr. Marcus Patel, DPT</strong></span>
+            </p>
           </div>
         </div>
 
-        {/* Quick Snapshot Metrics */}
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mt-4 pt-4 border-t border-warm-border/80 text-xs">
-          <div className="bg-warm-bg p-2.5 rounded-lg border border-warm-border">
-            <span className="text-[10px] text-slate-subtle uppercase font-semibold">Average Pain</span>
-            <p className="text-base font-bold text-navy-900 mt-0.5">{avgPainScore} / 10</p>
+        <div className="flex items-center gap-2 self-start sm:self-auto text-xs text-slate-500">
+          <Calendar className="w-4 h-4 text-teal-calm" />
+          <span>Surgical Day 14 · Post-Op Monitoring</span>
+        </div>
+      </div>
+
+      {/* ─── Hero Patient Insight Composition (Center Visual + Right Cards) ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Center: Knee Visualization */}
+        <div className="lg:col-span-8">
+          <KneeVisual
+            focusArea={plan?.title || 'Right Knee Recovery Focus'}
+            dayPostOp={14}
+            className="w-full shadow-soft"
+          />
+        </div>
+
+        {/* Right: 4 Compact Information Cards */}
+        <div className="lg:col-span-4 space-y-3.5">
+          <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-soft">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+              Exercise Completion
+            </span>
+            <div className="flex items-baseline justify-between mt-1">
+              <span className="text-2xl font-bold text-navy-900 tabular-nums">
+                {completionPercentage}%
+              </span>
+              <Badge variant="teal" size="sm">Target 80%+</Badge>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
+              {totalCompletedSessions} completed sessions on record
+            </p>
           </div>
 
-          <div className="bg-warm-bg p-2.5 rounded-lg border border-warm-border">
-            <span className="text-[10px] text-slate-subtle uppercase font-semibold">Completed Sessions</span>
-            <p className="text-base font-bold text-navy-900 mt-0.5">{totalCompletedSessions}</p>
+          <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-soft">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+              Total Sessions
+            </span>
+            <div className="flex items-baseline justify-between mt-1">
+              <span className="text-2xl font-bold text-navy-900 tabular-nums">
+                {sessions.length}
+              </span>
+              <Badge variant="success" size="sm">
+                {totalCompletedSessions} Validated
+              </Badge>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
+              Prescribed Seated Extension Reps
+            </p>
           </div>
 
-          <div className="bg-warm-bg p-2.5 rounded-lg border border-warm-border">
-            <span className="text-[10px] text-slate-subtle uppercase font-semibold">Logged Check-ins</span>
-            <p className="text-base font-bold text-navy-900 mt-0.5">{checkins.length}</p>
+          <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-soft">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+              Logged Check-ins
+            </span>
+            <div className="flex items-baseline justify-between mt-1">
+              <span className="text-2xl font-bold text-navy-900 tabular-nums">
+                {checkins.length}
+              </span>
+              <Badge variant="neutral" size="sm">Daily Triage</Badge>
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
+              Average pain across logs: {avgPainScore}/10
+            </p>
           </div>
 
-          <div className="bg-warm-bg p-2.5 rounded-lg border border-warm-border">
-            <span className="text-[10px] text-slate-subtle uppercase font-semibold">Assistant Inquiries</span>
-            <p className="text-base font-bold text-navy-900 mt-0.5">{assistantQuestions.length}</p>
+          <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-soft">
+            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
+              Latest Pain Score
+            </span>
+            <div className="flex items-baseline justify-between mt-1">
+              <span className="text-2xl font-bold text-navy-900 tabular-nums">
+                {checkins.length > 0 ? `${checkins[0].pain_score} / 10` : 'None'}
+              </span>
+              {checkins.length > 0 && checkins[0].pain_score >= 8 ? (
+                <Badge variant="error" size="sm">High Alert</Badge>
+              ) : (
+                <Badge variant="success" size="sm">Tolerable</Badge>
+              )}
+            </div>
+            <p className="text-xs text-slate-400 mt-1">
+              {checkins.length > 0 && checkins[0].pain_score >= 8
+                ? 'Clinical follow-up recommended'
+                : 'Consistent with post-op milestone'}
+            </p>
           </div>
         </div>
-      </Card>
+      </div>
 
       {/* Navigation Tabs */}
       <div className="flex gap-1.5 border-b border-warm-border pb-2 text-xs overflow-x-auto no-scrollbar">

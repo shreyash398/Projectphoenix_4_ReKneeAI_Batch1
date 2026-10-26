@@ -160,78 +160,81 @@ export const PatientVerifiedReports: React.FC = () => {
   }
 
   return (
-    <div className="space-y-5 max-w-2xl mx-auto pb-10">
+    <div className="space-y-6 max-w-4xl mx-auto pb-12">
       {/* Header with Back Button */}
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between pb-3 border-b border-slate-200/60">
         <button
           onClick={() => navigate('/progress')}
-          className="flex items-center gap-1.5 text-xs font-semibold text-slate-muted hover:text-navy-900 transition-colors p-1 rounded-lg"
+          className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-navy-900 transition-colors p-1 rounded-xl"
           aria-label="Back to recovery progress"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Recovery Progress</span>
+          <span>Back to Recovery Progress</span>
         </button>
 
         <Badge variant="teal" icon={<ShieldCheck className="w-3.5 h-3.5" />}>
-          Verified Records
+          Verified Clinical Records
         </Badge>
       </div>
 
       <div>
-        <h1 className="text-xl sm:text-2xl font-bold text-navy-900 tracking-tight">
-          Doctor-Verified Recovery Reports
+        <p className="text-xs uppercase font-bold tracking-wider text-teal-calm">
+          Physician Oversight
+        </p>
+        <h1 className="text-2xl font-extrabold text-navy-900 tracking-tight mt-1">
+          Verified Recovery Reports
         </h1>
-        <p className="text-xs sm:text-sm text-slate-muted mt-1">
-          Review your completed rehabilitation activity and access clinician-signed recovery reports.
+        <p className="text-xs sm:text-sm text-slate-500 mt-1">
+          Access doctor-verified rehabilitation reports with validated exercise execution records.
         </p>
       </div>
 
       {/* Notifications */}
       {successMessage && (
-        <Card className="p-3 bg-emerald-50 border-emerald-200 text-emerald-900 text-xs flex items-center gap-2">
+        <Card className="p-3.5 bg-emerald-50 border-emerald-200 text-emerald-900 text-xs flex items-center gap-2.5 rounded-xl shadow-soft">
           <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>{successMessage}</span>
+          <span className="font-medium">{successMessage}</span>
         </Card>
       )}
 
       {errorMessage && (
-        <Card className="p-3 bg-rose-50 border-rose-200 text-rose-900 text-xs flex items-center gap-2">
+        <Card className="p-3.5 bg-rose-50 border-rose-200 text-rose-900 text-xs flex items-center gap-2.5 rounded-xl shadow-soft">
           <AlertCircle className="w-4 h-4 text-rose-600 shrink-0" />
-          <span>{errorMessage}</span>
+          <span className="font-medium">{errorMessage}</span>
         </Card>
       )}
 
       {/* Recovery Completion Readiness Card */}
-      <Card className="p-4 sm:p-5 border-warm-border bg-white space-y-3.5">
+      <Card className="p-6 border-slate-200/80 bg-white space-y-4 shadow-soft">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-teal-calm">
+            <span className="text-[11px] font-bold uppercase tracking-wider text-teal-calm">
               Activity Milestone Tracking
             </span>
-            <h2 className="text-base font-bold text-navy-900 mt-0.5">
+            <h2 className="text-lg font-bold text-navy-900 mt-0.5">
               {plan?.title || 'Active Recovery Protocol'}
             </h2>
-            <p className="text-xs text-slate-muted mt-0.5">
+            <p className="text-xs text-slate-500 mt-0.5">
               Verification requires completion of prescribed rehabilitation sessions for review by your physical therapy team.
             </p>
           </div>
-          <div className="w-10 h-10 rounded-xl bg-teal-light text-teal-calm flex items-center justify-center shrink-0">
+          <div className="w-11 h-11 rounded-2xl bg-teal-light text-teal-calm flex items-center justify-center shrink-0 border border-teal-border">
             <FileCheck2 className="w-5 h-5" />
           </div>
         </div>
 
         {/* Readiness Metrics */}
-        <div className="grid grid-cols-2 gap-3 pt-1">
-          <div className="p-3 rounded-xl bg-warm-subtle/70 border border-warm-border">
-            <p className="text-[10px] text-slate-muted uppercase font-semibold">Completed Sessions</p>
-            <p className="text-lg font-bold text-navy-900 mt-0.5">
+        <div className="grid grid-cols-2 gap-3.5 pt-1">
+          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/70">
+            <p className="text-[10px] text-slate-400 uppercase font-semibold">Completed Sessions</p>
+            <p className="text-xl font-extrabold text-navy-900 mt-0.5 tabular-nums">
               {completedSessions.length}{' '}
-              <span className="text-xs font-normal text-slate-muted">/ {requiredSessionsThreshold} req.</span>
+              <span className="text-xs font-normal text-slate-400">/ {requiredSessionsThreshold} req.</span>
             </p>
           </div>
-          <div className="p-3 rounded-xl bg-warm-subtle/70 border border-warm-border">
-            <p className="text-[10px] text-slate-muted uppercase font-semibold">Check-ins Logged</p>
-            <p className="text-lg font-bold text-navy-900 mt-0.5">{checkins.length} check-ins</p>
+          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200/70">
+            <p className="text-[10px] text-slate-400 uppercase font-semibold">Check-ins Logged</p>
+            <p className="text-xl font-extrabold text-navy-900 mt-0.5 tabular-nums">{checkins.length} check-ins</p>
           </div>
         </div>
 

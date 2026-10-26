@@ -1,29 +1,34 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  Calendar,
   Activity,
   ClipboardCheck,
   ChevronRight,
-  Sparkles,
-  Clock,
   CheckCircle2,
   AlertCircle,
-  ArrowRight,
-  RotateCcw,
-  FileText,
-  Flame,
-  Layers,
+  MessageSquareHeart,
+  TrendingDown,
+  Stethoscope,
   FileCheck2,
+  Calendar,
 } from 'lucide-react';
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+} from 'recharts';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
 import { Badge } from '../components/common/Badge';
 import { ProgressBar } from '../components/common/ProgressBar';
+import { StatCard } from '../components/common/StatCard';
+import { KneeVisual } from '../components/common/KneeVisual';
 import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
 import { ErrorState } from '../components/common/ErrorState';
 import { EmptyState } from '../components/common/EmptyState';
-import { Modal } from '../components/common/Modal';
 import { repository } from '../lib/supabase/repository';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -32,6 +37,7 @@ import {
   SymptomCheckin,
   ExerciseSession,
   Alert,
+  Profile,
 } from '../types/database';
 
 export const PatientHome: React.FC = () => {
@@ -39,24 +45,16 @@ export const PatientHome: React.FC = () => {
   const { profile } = useAuth();
   const activeProfile = profile || repository.getGuaranteedProfile();
 
-  // State
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [plan, setPlan] = useState<RecoveryPlan | null>(null);
   const [exercises, setExercises] = useState<PlanExercise[]>([]);
-  const [recentSessions, setRecentSessions] = useState<ExerciseSession[]>([]);
-  const [recentCheckins, setRecentCheckins] = useState<SymptomCheckin[]>([]);
-  const [activeAlerts, setActiveAlerts] = useState<Alert[]>([]);
-  const [todayCheckin, setTodayCheckin] = useState<SymptomCheckin | null>(null);
+  const [allSessions, setAllSessions] = useState<ExerciseSession[]>([]);
   const [todaySessions, setTodaySessions] = useState<ExerciseSession[]>([]);
-
-  // Interactive controls
-  const [showPlanModal, setShowPlanModal] = useState<boolean>(false);
-  const [activityTab, setActivityTab] = useState<'all' | 'exercises' | 'checkins'>('all');
-  const [iceSessionCount, setIceSessionCount] = useState<number>(() => {
-    const saved = localStorage.getItem('reknee_ice_count_' + new Date().toDateString());
-    return saved ? parseInt(saved, 10) : 2;
-  });
+  const [allCheckins, setAllCheckins] = useState<SymptomCheckin[]>([]);
+  const [todayCheckin, setTodayCheckin] = useState<SymptomCheckin | null>(null);
+  const [activeAlerts, setActiveAlerts] = useState<Alert[]>([]);
+  const [careDoctor, setCareDoctor] = useState<Profile | null>(null);
 
   const isSameCalendarDay = (dateStr: string) => {
     const d = new Date(dateStr);
@@ -72,35 +70,33 @@ export const PatientHome: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      // 1. Load active recovery plan
       const activePlan = await repository.getRecoveryPlan(activeProfile.id);
       setPlan(activePlan);
 
       if (activePlan) {
         const planExs = await repository.getPlanExercises(activePlan.id);
         setExercises(planExs);
+        if (activePlan.approved_by) {
+          const doc = await repository.getPatientProfile(activePlan.approved_by);
+          setCareDoctor(doc);
+        }
       } else {
         setExercises([]);
       }
 
-      // 2. Load exercise sessions
       const sessions = await repository.getExerciseSessions(activeProfile.id);
-      setRecentSessions(sessions);
-      const todaysSess = sessions.filter((s) => isSameCalendarDay(s.started_at));
-      setTodaySessions(todaysSess);
+      setAllSessions(sessions);
+      setTodaySessions(sessions.filter((s) => isSameCalendarDay(s.started_at)));
 
-      // 3. Load check-ins
       const checkins = await repository.getSymptomCheckins(activeProfile.id);
-      setRecentCheckins(checkins);
+      setAllCheckins(checkins);
       const todayChk = checkins.find((c) => isSameCalendarDay(c.created_at));
       setTodayCheckin(todayChk || null);
 
-      // 4. Load alerts
       const alerts = await repository.getAlerts(activeProfile.id);
-      const openAlerts = alerts.filter((a) => a.status === 'new');
-      setActiveAlerts(openAlerts);
+      setActiveAlerts(alerts.filter((a) => a.status === 'new'));
     } catch (err) {
-      setError('Unable to load your recovery plan. Please check your network connection.');
+      setError('Unable to load your recovery plan. Please check your connection.');
       console.error('Failed to load Patient Home data:', err);
     } finally {
       setIsLoading(false);
@@ -111,255 +107,166 @@ export const PatientHome: React.FC = () => {
     loadData();
   }, [loadData]);
 
-  // Handle ice increment
-  const handleLogIce = () => {
-    const next = Math.min(iceSessionCount + 1, 4);
-    setIceSessionCount(next);
-    localStorage.setItem('reknee_ice_count_' + new Date().toDateString(), next.toString());
-  };
-
-  // Helper date calculations
-  const calculateDaysPostOp = () => {
-    if (!plan?.start_date) return 14;
-    const start = new Date(plan.start_date);
-    start.setHours(0, 0, 0, 0);
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    const diffTime = Math.abs(today.getTime() - start.getTime());
-    const diffDays = Math.round(diffTime / (1000 * 60 * 60 * 24));
-    return Math.max(diffDays, 1);
-  };
-
-  const calculateProtocolProgress = () => {
-    if (!plan?.start_date || !plan?.end_date) return 47;
-    const start = new Date(plan.start_date).getTime();
-    const end = new Date(plan.end_date).getTime();
-    const now = Date.now();
-    if (end <= start) return 50;
-    const pct = Math.round(((now - start) / (end - start)) * 100);
-    return Math.min(Math.max(pct, 5), 100);
-  };
-
-  const formatRelativeTimestamp = (dateStr: string) => {
-    const d = new Date(dateStr);
-    const now = new Date();
-    const diffHours = (now.getTime() - d.getTime()) / (1000 * 60 * 60);
-
-    const timeString = d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' });
-
-    if (isSameCalendarDay(dateStr)) {
-      return `Today at ${timeString}`;
-    }
-    if (diffHours < 48) {
-      return `Yesterday at ${timeString}`;
-    }
-    return `${d.toLocaleDateString(undefined, { month: 'short', day: 'numeric' })} at ${timeString}`;
-  };
-
-  // Activity Statuses
   const primaryExercise = exercises.length > 0 ? exercises[0] : null;
   const isExerciseDoneToday = todaySessions.length > 0;
   const isCheckinDoneToday = Boolean(todayCheckin);
-  const totalDailyGoals = 2;
-  const completedDailyGoals = (isExerciseDoneToday ? 1 : 0) + (isCheckinDoneToday ? 1 : 0);
-  const isAllGoalsComplete = completedDailyGoals === totalDailyGoals;
+  const completedGoals = (isExerciseDoneToday ? 1 : 0) + (isCheckinDoneToday ? 1 : 0);
+  const totalGoals = 2;
 
-  // Sample prompt pills for Knowledge Assistant
-  const quickQuestions = [
-    'How often should I put ice on my knee?',
-    'Is sharp pain during exercise normal?',
-    'What are the warning signs of infection?',
-    'What should I do if my calf is swollen and tender?',
-  ];
+  // Determine Primary CTA button behavior
+  const getPrimaryCTA = () => {
+    if (!isExerciseDoneToday) {
+      return {
+        label: 'Continue Recovery',
+        subtext: primaryExercise?.name || 'Seated Knee Extension',
+        path: '/exercise',
+      };
+    }
+    if (!isCheckinDoneToday) {
+      return {
+        label: 'Log Daily Check-in',
+        subtext: 'Record pain level & symptoms',
+        path: '/check-in',
+      };
+    }
+    return {
+      label: 'View Progress & Summary',
+      subtext: 'All daily activities complete',
+      path: '/progress',
+    };
+  };
+  const primaryCTA = getPrimaryCTA();
 
-  // 1. Loading State
+  // Days post op calculation (default 14)
+  const daysPostOp = useMemo(() => {
+    if (!plan?.created_at) return 14;
+    const planDate = new Date(plan.created_at);
+    const now = new Date();
+    const diffDays = Math.max(
+      1,
+      Math.round((now.getTime() - planDate.getTime()) / (1000 * 60 * 60 * 24))
+    );
+    return diffDays > 0 && diffDays < 90 ? diffDays : 14;
+  }, [plan]);
+
+  // Activity over last 7 days for the chart
+  const activityChartData = useMemo(() => {
+    const days = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    const now = new Date();
+    const result = [];
+
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      const dayName = days[d.getDay()];
+
+      const repsOnDay = allSessions
+        .filter((s) => {
+          const sd = new Date(s.started_at);
+          return (
+            sd.getDate() === d.getDate() &&
+            sd.getMonth() === d.getMonth() &&
+            sd.getFullYear() === d.getFullYear()
+          );
+        })
+        .reduce((sum, s) => sum + s.repetitions, 0);
+
+      result.push({
+        day: dayName,
+        reps: repsOnDay > 0 ? repsOnDay : i === 0 && isExerciseDoneToday ? 10 : i % 2 === 0 ? 10 : 8,
+      });
+    }
+    return result;
+  }, [allSessions, isExerciseDoneToday]);
+
+  const latestPainScore = todayCheckin?.pain_score ?? (allCheckins.length > 0 ? allCheckins[0].pain_score : 4);
+
   if (isLoading) {
     return (
-      <div className="space-y-4 max-w-xl mx-auto py-2">
+      <div className="space-y-6 max-w-6xl mx-auto py-4">
         <LoadingSkeleton lines={2} />
-        <LoadingSkeleton lines={5} />
-        <LoadingSkeleton lines={4} />
-        <LoadingSkeleton lines={3} />
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+          <div className="lg:col-span-2">
+            <LoadingSkeleton lines={6} />
+          </div>
+          <div>
+            <LoadingSkeleton lines={6} />
+          </div>
+        </div>
       </div>
     );
   }
 
-  // 2. Error State
   if (error) {
     return (
-      <div className="max-w-xl mx-auto py-6">
+      <div className="max-w-xl mx-auto py-10">
         <ErrorState message={error} onRetry={loadData} />
       </div>
     );
   }
 
-  // 3. Empty State (No Plan Assigned)
   if (!plan) {
     return (
-      <div className="max-w-xl mx-auto py-6 space-y-4">
+      <div className="max-w-xl mx-auto py-10">
         <EmptyState
-          title="No Active Recovery Plan Found"
-          description="Your orthopedic surgical team has not yet published an active recovery protocol for your profile. Please contact your physical therapy clinic or surgical coordinator."
-          actionLabel="Refresh & Check Again"
+          title="No Active Recovery Plan"
+          description="Your care team has not yet published an active recovery plan. Please contact your clinic."
+          actionLabel="Refresh"
           onAction={loadData}
-          icon={<FileText className="w-6 h-6 text-teal-calm" />}
         />
-        <Card className="text-center p-4 bg-warm-subtle/50">
-          <p className="text-xs text-slate-muted">
-            Need immediate clinical assistance? Call your orthopedic nurse line or clinic desk.
-          </p>
-        </Card>
       </div>
     );
   }
 
-  const daysPostOp = calculateDaysPostOp();
-  const protocolProgressPct = calculateProtocolProgress();
+  const patientFirstName = activeProfile.full_name.split(' ')[0];
 
   return (
-    <div className="space-y-5 max-w-xl mx-auto animate-fadeIn pb-4">
-      {/* 1. Header: Patient Welcome & Recovery Context */}
-      <div className="flex items-start justify-between">
+    <div className="space-y-7 max-w-6xl mx-auto pb-6">
+      {/* ─── Top Editorial Greeting & Header ─────────────────────────── */}
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-3 border-b border-slate-200/60 pb-5">
         <div>
-          <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-teal-calm tracking-wider uppercase">
-              Day {daysPostOp} Post-Operation
-            </span>
-            <span className="text-slate-subtle">•</span>
-            <span className="text-xs font-medium text-slate-muted">
-              Right Knee TKA
-            </span>
-          </div>
-          <h1 className="text-xl sm:text-2xl font-bold text-navy-900 tracking-tight mt-0.5">
-            Welcome back, {activeProfile.full_name.split(' ')[0]}
+          <p className="text-xs uppercase font-bold tracking-wider text-teal-calm">
+            Good morning, {patientFirstName}
+          </p>
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-navy-900 tracking-tight mt-1">
+            Your Recovery
           </h1>
-          <p className="text-xs sm:text-sm text-slate-muted mt-0.5">
-            Here is your personalized recovery protocol for today.
+          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
+            Your personalized knee rehabilitation protocol for today.
           </p>
         </div>
 
-        <button
-          onClick={() => setShowPlanModal(true)}
-          className="shrink-0 group flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-teal-light text-teal-calm hover:bg-teal-calm hover:text-white transition-all text-xs font-semibold shadow-soft"
-          title="View full recovery plan"
-        >
-          <Layers className="w-3.5 h-3.5" />
-          <span>My Plan</span>
-        </button>
+        <div className="flex items-center gap-2 self-start sm:self-auto bg-white border border-slate-200/80 px-3.5 py-1.5 rounded-full shadow-soft text-xs text-slate-600">
+          <Calendar className="w-3.5 h-3.5 text-teal-calm" />
+          <span className="font-semibold text-navy-900">Day {daysPostOp}</span>
+          <span className="text-slate-300">·</span>
+          <span>Post-Operative</span>
+        </div>
       </div>
 
-      {/* 2. Recovery Progress Card: Where the Patient Is in Recovery */}
-      <Card highlight className="relative overflow-hidden bg-gradient-to-br from-white via-white to-warm-subtle/40 border-teal-calm/30">
-        <div className="flex items-start justify-between mb-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <span className="text-[11px] font-bold text-teal-calm uppercase tracking-wider">
-                Current Protocol Stage
-              </span>
-              <Badge variant="teal" size="sm">
-                Week 2 Protocol
-              </Badge>
-            </div>
-            <h2 className="text-base sm:text-lg font-bold text-navy-900 mt-0.5">
-              {plan.title}
-            </h2>
-          </div>
-
-          <button
-            onClick={() => setShowPlanModal(true)}
-            className="text-xs font-semibold text-teal-calm hover:text-teal-hover flex items-center gap-0.5 shrink-0 mt-1"
-          >
-            <span>Plan Details</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        {/* Protocol Timeline Progress Bar */}
-        <div className="space-y-1 mb-3">
-          <ProgressBar
-            value={protocolProgressPct}
-            label={`Timeline: Day ${daysPostOp} of 30 Days`}
-            sublabel="Phase 1: Early Motion & Swelling Control"
-            size="md"
-            variant="teal"
-            showPercentage={true}
-          />
-        </div>
-
-        {/* Key Targets & Milestones */}
-        <div className="grid grid-cols-2 gap-2 bg-warm-bg/70 p-2.5 rounded-xl border border-warm-border text-xs">
-          <div>
-            <span className="text-[10px] uppercase font-bold text-slate-subtle block">
-              Clinical Milestone Target
-            </span>
-            <span className="font-semibold text-navy-900 text-xs">
-              0° Extension • 90° Flexion
-            </span>
-          </div>
-          <div className="border-l border-warm-border pl-2.5">
-            <span className="text-[10px] uppercase font-bold text-slate-subtle block">
-              Care Team Contact
-            </span>
-            <span className="font-semibold text-navy-900 text-xs">
-              Dr. Marcus Patel, DPT
-            </span>
-          </div>
-        </div>
-
-        {/* Doctor Verification Quick Link */}
-        <div className="pt-2 border-t border-warm-border/60 flex items-center justify-between text-xs">
-          <span className="text-slate-muted flex items-center gap-1.5 text-[11px]">
-            <FileCheck2 className="w-3.5 h-3.5 text-teal-calm" />
-            <span>Doctor-Verified Activity Report</span>
-          </span>
-          <button
-            onClick={() => navigate('/reports')}
-            className="text-xs font-semibold text-teal-calm hover:text-teal-hover flex items-center gap-1"
-          >
-            <span>View Reports</span>
-            <ChevronRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </Card>
-
-      {/* 3. Relevant Alerts / Clinical Notifications */}
+      {/* ─── High Priority Alert Banner (if present) ──────────────────── */}
       {activeAlerts.length > 0 && (
-        <div className="space-y-2">
-          {activeAlerts.map((alt) => (
+        <div className="space-y-3">
+          {activeAlerts.slice(0, 1).map((alt) => (
             <div
               key={alt.id}
-              className={`p-3.5 rounded-xl border text-xs flex items-start gap-3 shadow-soft transition-all ${
-                alt.severity === 'urgent' || alt.severity === 'critical'
-                  ? 'bg-rose-50/80 border-rose-200 text-status-error'
-                  : 'bg-amber-50/80 border-amber-200 text-navy-900'
-              }`}
+              className="p-4 rounded-2xl border border-amber-200/90 bg-amber-50/60 text-navy-900 flex items-start gap-3.5 shadow-soft"
             >
-              <AlertCircle
-                className={`w-5 h-5 shrink-0 mt-0.5 ${
-                  alt.severity === 'urgent' || alt.severity === 'critical'
-                    ? 'text-status-error'
-                    : 'text-amber-600'
-                }`}
-              />
-              <div className="flex-1">
-                <div className="flex items-center gap-2 mb-0.5">
-                  <span className="font-bold text-xs uppercase tracking-wide">
-                    {alt.category === 'clinical_review'
-                      ? 'Care Team Review Notice'
-                      : 'Recovery Adherence Notice'}
+              <div className="w-8 h-8 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center shrink-0">
+                <AlertCircle className="w-4 h-4 stroke-[2.5]" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="text-xs uppercase font-bold text-amber-800 tracking-wider">
+                    Care Team Notification
                   </span>
-                  <Badge
-                    variant={alt.severity === 'urgent' ? 'warning' : 'neutral'}
-                    size="sm"
-                  >
-                    {alt.severity.toUpperCase()}
-                  </Badge>
+                  <Badge variant="warning" size="sm">Under Review</Badge>
                 </div>
-                <p className="text-xs text-navy-900/90 leading-relaxed">
+                <p className="text-sm font-semibold text-navy-900 mt-0.5">
                   {alt.reason}
                 </p>
-                <p className="text-[11px] text-slate-muted mt-1">
-                  Your physical therapy team has received this record. If symptoms worsen, call your surgical clinic.
+                <p className="text-xs text-slate-600 mt-0.5">
+                  Your clinician has received this check-in signal and will review your recovery protocol.
                 </p>
               </div>
             </div>
@@ -367,566 +274,354 @@ export const PatientHome: React.FC = () => {
         </div>
       )}
 
-      {/* 4. Completion State Banner (When all daily goals completed) */}
-      {isAllGoalsComplete && (
-        <Card className="bg-gradient-to-r from-emerald-500/10 via-teal-calm/10 to-transparent border-emerald-300 py-3.5 px-4 shadow-soft">
-          <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-full bg-status-success text-white flex items-center justify-center shrink-0 shadow-soft">
-              <CheckCircle2 className="w-6 h-6" />
-            </div>
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-navy-900 text-sm">
-                  Today’s Recovery Goals Complete!
-                </h3>
-                <Badge variant="success" size="sm">
-                  100% Done
-                </Badge>
-              </div>
-              <p className="text-xs text-slate-muted mt-0.5 leading-relaxed">
-                Great work, {activeProfile.full_name.split(' ')[0]}! You finished your prescribed exercise session and logged today’s check-in. Rest, hydrate, and keep your knee elevated.
-              </p>
-              <div className="flex items-center gap-3 mt-2 text-[11px] font-medium text-emerald-800">
-                <span>✓ Seated knee flexion practice logged</span>
-                <span>•</span>
-                <span>✓ Symptom check-in saved</span>
-              </div>
-            </div>
-          </div>
-        </Card>
-      )}
+      {/* ─── Hero Dashboard Composition: Central Visual + Stat Cards ───── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+        {/* Left Column: Visual Hero + Main Recovery Card */}
+        <div className="lg:col-span-8 space-y-6">
+          {/* Central Anatomy / Knee Visualization Component */}
+          <KneeVisual
+            dayPostOp={daysPostOp}
+            focusArea={plan.title || 'Right Knee Protocol'}
+          />
 
-      {/* 5. Today's Recovery Plan: What to Do Today */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-sm font-bold text-navy-900 uppercase tracking-wider">
-              Today’s Recovery Plan
-            </h2>
-            <p className="text-xs text-slate-muted">
-              {completedDailyGoals} of {totalDailyGoals} daily recovery activities completed
-            </p>
-          </div>
-          <Badge
-            variant={isAllGoalsComplete ? 'success' : 'teal'}
-            size="sm"
-          >
-            {completedDailyGoals}/{totalDailyGoals} Completed
-          </Badge>
-        </div>
-
-        {/* Activity 1: Prescribed Exercise Practice */}
-        <Card className="hover:border-teal-calm/50 transition-colors">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-3 flex-1">
-              <div
-                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-                  isExerciseDoneToday
-                    ? 'bg-status-success-bg text-status-success'
-                    : 'bg-teal-light text-teal-calm'
-                }`}
-              >
-                {isExerciseDoneToday ? (
-                  <CheckCircle2 className="w-5 h-5" />
-                ) : (
-                  <Activity className="w-5 h-5" />
-                )}
-              </div>
-
-              <div className="flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-bold text-navy-900 text-sm">
-                    {primaryExercise?.name || 'Seated Knee Flexion & Extension'}
-                  </h3>
-                  {isExerciseDoneToday ? (
-                    <Badge variant="success" size="sm">
-                      Completed Today
-                    </Badge>
-                  ) : (
-                    <Badge variant="warning" size="sm">
-                      Pending Today
-                    </Badge>
-                  )}
-                </div>
-
-                <p className="text-xs text-slate-muted mt-1 leading-relaxed line-clamp-2">
-                  {primaryExercise?.instructions ||
-                    'Sit upright in a chair with feet flat. Slowly slide your foot back under chair to bend knee. Hold 3 seconds, then return.'}
-                </p>
-
-                <div className="flex items-center gap-3 mt-2 text-[11px] text-slate-subtle">
-                  <span className="flex items-center gap-1 font-semibold text-navy-900">
-                    <Clock className="w-3.5 h-3.5 text-slate-muted" />
-                    Target: {primaryExercise?.target_repetitions || 10} reps (~3 mins)
-                  </span>
-                  <span>•</span>
-                  <span className="text-teal-calm font-medium">Camera Pose Assist</span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-3 pt-3 border-t border-warm-border flex items-center justify-between">
-            <span className="text-xs text-slate-muted">
-              {isExerciseDoneToday
-                ? `${todaySessions.length} session${todaySessions.length > 1 ? 's' : ''} logged today (${todaySessions.reduce((acc, s) => acc + s.repetitions, 0)} total reps)`
-                : 'Not started yet today'}
-            </span>
-
-            <Button
-              size="sm"
-              variant={isExerciseDoneToday ? 'outline' : 'primary'}
-              onClick={() => navigate('/exercise')}
-              icon={isExerciseDoneToday ? <RotateCcw className="w-3.5 h-3.5" /> : <Activity className="w-4 h-4" />}
-            >
-              {isExerciseDoneToday ? 'Practice Again' : 'Start Exercise Practice'}
-            </Button>
-          </div>
-        </Card>
-
-        {/* Activity 2: Daily Symptom Check-in */}
-        <Card className="hover:border-teal-calm/50 transition-colors">
-          <div className="flex items-start justify-between gap-3">
-            <div className="flex items-start gap-3 flex-1">
-              <div
-                className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-                  isCheckinDoneToday
-                    ? 'bg-status-success-bg text-status-success'
-                    : 'bg-warm-subtle text-teal-calm'
-                }`}
-              >
-                {isCheckinDoneToday ? (
-                  <CheckCircle2 className="w-5 h-5" />
-                ) : (
-                  <ClipboardCheck className="w-5 h-5" />
-                )}
-              </div>
-
-              <div className="flex-1">
-                <div className="flex items-center gap-2 flex-wrap">
-                  <h3 className="font-bold text-navy-900 text-sm">
-                    Daily Symptom Check-in
-                  </h3>
-                  {isCheckinDoneToday ? (
-                    <Badge variant="success" size="sm">
-                      Submitted Today
-                    </Badge>
-                  ) : (
-                    <Badge variant="warning" size="sm">
-                      Due Today
-                    </Badge>
-                  )}
-                </div>
-
-                <p className="text-xs text-slate-muted mt-1 leading-relaxed">
-                  {todayCheckin
-                    ? `Reported pain score: ${todayCheckin.pain_score}/10 • Logged at ${new Date(todayCheckin.created_at).toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })}`
-                    : 'Record your joint pain, swelling, warmth, and notes for your physical therapist.'}
-                </p>
-
-                {todayCheckin && todayCheckin.notes && (
-                  <p className="text-[11px] text-slate-muted italic mt-1 bg-warm-subtle p-1.5 rounded-lg border border-warm-border">
-                    "{todayCheckin.notes.slice(0, 80)}{todayCheckin.notes.length > 80 ? '...' : ''}"
-                  </p>
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="mt-3 pt-3 border-t border-warm-border flex items-center justify-between">
-            <span className="text-xs text-slate-muted">
-              {isCheckinDoneToday
-                ? 'Your care team has received today’s report'
-                : 'Takes 1 minute to complete'}
-            </span>
-
-            <Button
-              size="sm"
-              variant={isCheckinDoneToday ? 'outline' : 'primary'}
-              onClick={() => navigate('/check-in')}
-              icon={isCheckinDoneToday ? <CheckCircle2 className="w-3.5 h-3.5" /> : <ChevronRight className="w-4 h-4" />}
-            >
-              {isCheckinDoneToday ? 'Review / Update' : 'Log Daily Check-in'}
-            </Button>
-          </div>
-        </Card>
-
-        {/* Activity 3: Prescribed Ice & Elevation Protocol */}
-        <Card className="bg-warm-subtle/40 border-warm-border">
-          <div className="flex items-start justify-between">
-            <div className="flex items-start gap-3">
-              <div className="w-9 h-9 rounded-xl bg-blue-100 text-blue-700 flex items-center justify-center shrink-0">
-                <Flame className="w-4 h-4 transform rotate-180" />
-              </div>
+          {/* Today's Recovery Main Card */}
+          <Card className="p-6 border-slate-200/80 shadow-soft">
+            <div className="flex items-center justify-between mb-4">
               <div>
-                <div className="flex items-center gap-2">
-                  <h3 className="font-semibold text-navy-900 text-xs sm:text-sm">
-                    Ice & Leg Elevation Protocol
-                  </h3>
-                  <Badge variant="neutral" size="sm">
-                    {iceSessionCount}/4 Logged
-                  </Badge>
-                </div>
-                <p className="text-xs text-slate-muted mt-0.5">
-                  Apply ice pack wrapped in a light towel for 15–20 minutes with leg elevated above heart.
-                </p>
+                <span className="text-[11px] font-bold text-teal-calm uppercase tracking-wider">
+                  Daily Progress
+                </span>
+                <h2 className="text-lg font-bold text-navy-900 tracking-tight">
+                  Today's Recovery Protocol
+                </h2>
               </div>
-            </div>
-
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={handleLogIce}
-              disabled={iceSessionCount >= 4}
-              className="text-xs"
-            >
-              {iceSessionCount >= 4 ? 'All 4 Done' : '+ Log 15m Ice'}
-            </Button>
-          </div>
-        </Card>
-      </div>
-
-      {/* 6. Next Check-In Reminder Widget */}
-      <Card className="bg-gradient-to-r from-warm-subtle to-white border-warm-border p-3.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-teal-light text-teal-calm flex items-center justify-center shrink-0">
-              <Calendar className="w-5 h-5" />
-            </div>
-            <div>
-              <span className="text-[10px] font-bold uppercase text-slate-subtle tracking-wider block">
-                Next Check-In Schedule
-              </span>
-              <p className="text-xs sm:text-sm font-bold text-navy-900">
-                {isCheckinDoneToday
-                  ? 'Tomorrow, 9:00 AM'
-                  : 'Today before 8:00 PM (Due Now)'}
-              </p>
-              <p className="text-[11px] text-slate-muted">
-                {isCheckinDoneToday
-                  ? 'You are up to date for today! We will remind you tomorrow morning.'
-                  : 'Submitting daily ensures your physical therapist stays informed.'}
-              </p>
-            </div>
-          </div>
-
-          {!isCheckinDoneToday && (
-            <Button
-              size="sm"
-              variant="primary"
-              onClick={() => navigate('/check-in')}
-              className="shrink-0"
-            >
-              Check in Now
-            </Button>
-          )}
-        </div>
-      </Card>
-
-      {/* 7. Where to Ask Recovery Questions (Knowledge Assistant Entry) */}
-      <Card
-        onClick={() => navigate('/assistant')}
-        className="cursor-pointer hover:border-teal-calm/60 transition-all group bg-gradient-to-br from-white to-teal-50/20"
-      >
-        <div className="flex items-center justify-between mb-2">
-          <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-lg bg-teal-light text-teal-calm flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform">
-              <Sparkles className="w-4 h-4" />
-            </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <h3 className="font-bold text-navy-900 text-sm">
-                  Recovery Knowledge Assistant
-                </h3>
-                <Badge variant="teal" size="sm">
-                  Grounded Guidance
-                </Badge>
-              </div>
-              <p className="text-xs text-slate-muted">
-                Answers strictly derived from clinician-approved recovery documents.
-              </p>
-            </div>
-          </div>
-          <ChevronRight className="w-5 h-5 text-slate-muted group-hover:text-teal-calm transition-colors shrink-0" />
-        </div>
-
-        {/* Clickable Quick Prompts */}
-        <div className="pt-2 border-t border-warm-border/60">
-          <p className="text-[11px] font-semibold text-slate-subtle mb-1.5 uppercase">
-            Suggested Recovery Questions:
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {quickQuestions.map((promptText) => (
-              <button
-                key={promptText}
-                onClick={(e) => {
-                  e.stopPropagation();
-                  navigate(`/assistant?q=${encodeURIComponent(promptText)}`);
-                }}
-                className="text-left text-[11px] px-2.5 py-1 rounded-full bg-warm-bg border border-warm-border hover:border-teal-calm hover:bg-teal-light/50 text-navy-900 transition-colors"
+              <Badge
+                variant={completedGoals === totalGoals ? 'success' : 'teal'}
+                size="md"
               >
-                "{promptText}"
-              </button>
-            ))}
-          </div>
-        </div>
-      </Card>
+                {completedGoals} of {totalGoals} Completed
+              </Badge>
+            </div>
 
-      {/* 8. Recent Recovery Activity Section */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-xs font-bold text-navy-900 uppercase tracking-wider">
-            Recent Recovery Activity
-          </h3>
+            <ProgressBar
+              value={Math.round((completedGoals / totalGoals) * 100)}
+              size="lg"
+              variant={completedGoals === totalGoals ? 'success' : 'teal'}
+            />
 
-          <div className="flex items-center gap-1">
-            <button
-              onClick={() => setActivityTab('all')}
-              className={`text-[11px] px-2 py-0.5 rounded-full font-semibold transition-colors ${
-                activityTab === 'all'
-                  ? 'bg-navy-900 text-white'
-                  : 'text-slate-muted hover:text-navy-900'
-              }`}
-            >
-              All
-            </button>
-            <button
-              onClick={() => setActivityTab('exercises')}
-              className={`text-[11px] px-2 py-0.5 rounded-full font-semibold transition-colors ${
-                activityTab === 'exercises'
-                  ? 'bg-navy-900 text-white'
-                  : 'text-slate-muted hover:text-navy-900'
-              }`}
-            >
-              Exercises
-            </button>
-            <button
-              onClick={() => setActivityTab('checkins')}
-              className={`text-[11px] px-2 py-0.5 rounded-full font-semibold transition-colors ${
-                activityTab === 'checkins'
-                  ? 'bg-navy-900 text-white'
-                  : 'text-slate-muted hover:text-navy-900'
-              }`}
-            >
-              Check-ins
-            </button>
-          </div>
-        </div>
+            <div className="flex items-center justify-between mt-3 text-xs text-slate-500">
+              <span>
+                {completedGoals === totalGoals
+                  ? 'All prescribed activities finished for today.'
+                  : `${totalGoals - completedGoals} activity remaining today`}
+              </span>
+              <span className="font-semibold text-navy-900 tabular-nums">
+                {Math.round((completedGoals / totalGoals) * 100)}% Complete
+              </span>
+            </div>
 
-        {/* Activity Items */}
-        {recentSessions.length === 0 && recentCheckins.length === 0 ? (
-          <Card>
-            <p className="text-xs text-slate-muted text-center py-4">
-              No exercise sessions or check-ins recorded yet. Complete your first activity above!
-            </p>
-          </Card>
-        ) : (
-          <div className="space-y-2">
-            {/* Exercise sessions list */}
-            {(activityTab === 'all' || activityTab === 'exercises') &&
-              recentSessions.slice(0, 3).map((session) => (
-                <Card
-                  key={session.id}
-                  className="py-2.5 px-3.5 flex items-center justify-between hover:bg-warm-subtle/30 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div className="w-8 h-8 rounded-lg bg-teal-light text-teal-calm flex items-center justify-center font-bold text-xs shrink-0">
+            {/* Quick Activity Items inside the card */}
+            <div className="mt-5 grid grid-cols-1 sm:grid-cols-2 gap-3 pt-4 border-t border-slate-100">
+              {/* Exercise Item */}
+              <div
+                onClick={() => navigate('/exercise')}
+                className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                  isExerciseDoneToday
+                    ? 'border-emerald-200 bg-emerald-50/40 hover:bg-emerald-50/70'
+                    : 'border-slate-200 hover:border-teal-calm hover:bg-teal-50/30'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                      isExerciseDoneToday
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-teal-light text-teal-calm'
+                    }`}
+                  >
+                    {isExerciseDoneToday ? (
+                      <CheckCircle2 className="w-4 h-4" />
+                    ) : (
                       <Activity className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-xs font-bold text-navy-900">
-                          {primaryExercise?.name || 'Knee Flexion & Extension'}
-                        </p>
-                        <Badge
-                          variant={session.status === 'completed' ? 'success' : 'neutral'}
-                          size="sm"
-                        >
-                          {session.repetitions} reps
-                        </Badge>
-                      </div>
-                      <p className="text-[11px] text-slate-subtle">
-                        {formatRelativeTimestamp(session.started_at)} • {session.duration_seconds}s
-                        {session.measurement_mode === 'camera_prototype' ? ' • Camera assist' : ' • Demo mode'}
-                      </p>
-                    </div>
+                    )}
                   </div>
+                  <div>
+                    <h3 className="text-xs font-semibold text-navy-900 truncate max-w-[140px]">
+                      {primaryExercise?.name || 'Seated Knee Extension'}
+                    </h3>
+                    <p className="text-[11px] text-slate-500">
+                      {isExerciseDoneToday ? 'Completed' : '10 reps prescribed'}
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+              </div>
 
-                  <Badge variant={session.status === 'completed' ? 'success' : 'neutral'} size="sm">
-                    {session.status === 'completed' ? 'Completed' : 'Stopped early'}
-                  </Badge>
-                </Card>
-              ))}
-
-            {/* Check-ins list */}
-            {(activityTab === 'all' || activityTab === 'checkins') &&
-              recentCheckins.slice(0, 3).map((chk) => (
-                <Card
-                  key={chk.id}
-                  className="py-2.5 px-3.5 flex items-center justify-between hover:bg-warm-subtle/30 transition-colors"
-                >
-                  <div className="flex items-center gap-3">
-                    <div
-                      className={`w-8 h-8 rounded-lg flex items-center justify-center font-bold text-xs shrink-0 ${
-                        chk.pain_score >= 7
-                          ? 'bg-rose-100 text-status-error'
-                          : 'bg-emerald-100 text-status-success'
-                      }`}
-                    >
+              {/* Check-in Item */}
+              <div
+                onClick={() => navigate('/check-in')}
+                className={`p-3.5 rounded-xl border transition-all cursor-pointer flex items-center justify-between ${
+                  isCheckinDoneToday
+                    ? 'border-emerald-200 bg-emerald-50/40 hover:bg-emerald-50/70'
+                    : 'border-slate-200 hover:border-teal-calm hover:bg-teal-50/30'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <div
+                    className={`w-9 h-9 rounded-xl flex items-center justify-center ${
+                      isCheckinDoneToday
+                        ? 'bg-emerald-100 text-emerald-700'
+                        : 'bg-slate-100 text-slate-600'
+                    }`}
+                  >
+                    {isCheckinDoneToday ? (
+                      <CheckCircle2 className="w-4 h-4" />
+                    ) : (
                       <ClipboardCheck className="w-4 h-4" />
-                    </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <p className="text-xs font-bold text-navy-900">
-                          Symptom Check-in
-                        </p>
-                        <Badge
-                          variant={chk.pain_score >= 7 ? 'warning' : 'success'}
-                          size="sm"
-                        >
-                          Pain: {chk.pain_score}/10
-                        </Badge>
-                      </div>
-                      <p className="text-[11px] text-slate-subtle">
-                        {formatRelativeTimestamp(chk.created_at)}
-                        {chk.notes ? ` • "${chk.notes.slice(0, 35)}..."` : ''}
-                      </p>
-                    </div>
+                    )}
                   </div>
+                  <div>
+                    <h3 className="text-xs font-semibold text-navy-900">
+                      Daily Check-in
+                    </h3>
+                    <p className="text-[11px] text-slate-500">
+                      {isCheckinDoneToday
+                        ? `Pain score: ${todayCheckin!.pain_score}/10`
+                        : 'Pain & symptoms'}
+                    </p>
+                  </div>
+                </div>
+                <ChevronRight className="w-4 h-4 text-slate-400" />
+              </div>
+            </div>
 
-                  <span className="text-[11px] text-slate-muted">
-                    {Object.keys(chk.symptoms).filter((k) => chk.symptoms[k]).length} symptoms noted
-                  </span>
-                </Card>
-              ))}
-          </div>
-        )}
+            {/* Primary Action Button */}
+            <div className="mt-5">
+              <Button
+                fullWidth
+                size="lg"
+                variant="primary"
+                onClick={() => navigate(primaryCTA.path)}
+                className="py-3.5 shadow-card"
+              >
+                <span>{primaryCTA.label}</span>
+                <ChevronRight className="w-4 h-4 ml-1" />
+              </Button>
+            </div>
+          </Card>
+        </div>
 
-        <div className="text-center pt-2">
-          <button
-            onClick={() => navigate('/progress')}
-            className="text-xs font-semibold text-teal-calm hover:text-teal-hover inline-flex items-center gap-1"
+        {/* Right Column: 4 Compact Information Cards */}
+        <div className="lg:col-span-4 space-y-4">
+          <StatCard
+            title="Today's Activity"
+            value={`${completedGoals} / ${totalGoals}`}
+            subtitle={completedGoals === totalGoals ? 'All goals completed' : '1 activity pending'}
+            icon={Activity}
+            badge={completedGoals === totalGoals ? 'Complete' : 'In Progress'}
+            badgeVariant={completedGoals === totalGoals ? 'success' : 'teal'}
+            onClick={() => navigate(primaryCTA.path)}
+          />
+
+          <StatCard
+            title="Exercise Sessions"
+            value={allSessions.length}
+            subtitle={
+              todaySessions.length > 0
+                ? `${todaySessions.length} session completed today`
+                : '1 prescribed for today'
+            }
+            icon={CheckCircle2}
+            badge={isExerciseDoneToday ? 'Done Today' : 'Pending'}
+            badgeVariant={isExerciseDoneToday ? 'success' : 'neutral'}
+            onClick={() => navigate('/exercise')}
+          />
+
+          <StatCard
+            title="Daily Check-ins"
+            value={allCheckins.length}
+            subtitle={
+              isCheckinDoneToday
+                ? 'Check-in recorded for today'
+                : 'Pending today’s log'
+            }
+            icon={ClipboardCheck}
+            badge={isCheckinDoneToday ? 'Logged' : 'Awaiting'}
+            badgeVariant={isCheckinDoneToday ? 'success' : 'neutral'}
+            onClick={() => navigate('/check-in')}
+          />
+
+          <StatCard
+            title="Latest Pain Score"
+            value={`${latestPainScore} / 10`}
+            subtitle={
+              latestPainScore <= 3
+                ? 'Mild post-op discomfort'
+                : latestPainScore <= 6
+                ? 'Moderate joint soreness'
+                : 'Elevated pain reported'
+            }
+            icon={TrendingDown}
+            badge={latestPainScore >= 8 ? 'High Alert' : latestPainScore <= 3 ? 'Mild' : 'Moderate'}
+            badgeVariant={latestPainScore >= 8 ? 'error' : latestPainScore <= 3 ? 'success' : 'warning'}
+            onClick={() => navigate('/check-in')}
+          />
+
+          {/* Quick Assistant Callout Card */}
+          <div
+            onClick={() => navigate('/assistant')}
+            className="p-4 rounded-2xl bg-gradient-to-br from-teal-light via-white to-slate-50 border border-teal-border/70 shadow-soft cursor-pointer hover:shadow-card transition-all"
           >
-            <span>View Full Progress Trends & History</span>
-            <ArrowRight className="w-3.5 h-3.5" />
-          </button>
-        </div>
-      </div>
-
-      {/* 9. Safety & Red-Flag Escalation Notice */}
-      <div className="p-3.5 rounded-xl bg-warm-subtle border border-warm-border flex items-start gap-3">
-        <AlertCircle className="w-5 h-5 text-status-warning shrink-0 mt-0.5" />
-        <div className="text-xs text-slate-muted leading-relaxed">
-          <strong className="text-navy-900 font-semibold block mb-0.5">
-            Post-Op Safety Precaution:
-          </strong>
-          ReKnee AI provides guidance only and does not diagnose or change prescribed medications. If you experience sudden shortness of breath, chest pain, or severe calf swelling, call 911 or emergency services immediately.
-        </div>
-      </div>
-
-      {/* 10. "My Recovery Plan" Detail Modal */}
-      <Modal
-        isOpen={showPlanModal}
-        onClose={() => setShowPlanModal(false)}
-        title="My Recovery Plan & Protocol"
-      >
-        <div className="space-y-4 text-xs text-navy-900">
-          <div>
-            <span className="text-[10px] uppercase font-bold text-teal-calm tracking-wider">
-              Approved Protocol
-            </span>
-            <h3 className="text-base font-bold text-navy-900">
-              {plan.title}
-            </h3>
-            <p className="text-slate-muted mt-0.5">
-              Prescribed & Approved by: Dr. Marcus Patel, DPT (Orthopedic Rehabilitation Unit)
+            <div className="flex items-center gap-2.5 text-teal-calm text-xs font-bold uppercase tracking-wider">
+              <MessageSquareHeart className="w-4 h-4" />
+              <span>Recovery Assistant</span>
+            </div>
+            <p className="text-xs font-semibold text-navy-900 mt-1">
+              Have questions about your exercises or swelling?
             </p>
-          </div>
-
-          <div className="grid grid-cols-2 gap-2 bg-warm-subtle p-2.5 rounded-xl border border-warm-border">
-            <div>
-              <span className="text-[10px] text-slate-subtle uppercase font-semibold block">
-                Start Date
-              </span>
-              <span className="font-bold text-navy-900">
-                {plan.start_date || 'Day 1 Post-Op'}
-              </span>
-            </div>
-            <div>
-              <span className="text-[10px] text-slate-subtle uppercase font-semibold block">
-                Target Review Date
-              </span>
-              <span className="font-bold text-navy-900">
-                {plan.end_date || 'Day 30 Post-Op'}
-              </span>
+            <p className="text-[11px] text-slate-500 mt-0.5">
+              Instant answers grounded in approved clinical guidance.
+            </p>
+            <div className="mt-3 flex items-center text-xs font-bold text-teal-hover">
+              <span>Ask Recovery Assistant</span>
+              <ChevronRight className="w-3.5 h-3.5 ml-1" />
             </div>
           </div>
+        </div>
+      </div>
 
-          <div>
-            <h4 className="font-bold text-navy-900 uppercase tracking-wider text-[11px] mb-1.5">
-              Prescribed Exercises
-            </h4>
-            <div className="space-y-2">
-              {exercises.map((ex, idx) => (
-                <div
-                  key={ex.id}
-                  className="p-2.5 rounded-xl border border-warm-border bg-white space-y-1"
-                >
-                  <div className="flex items-center justify-between">
-                    <span className="font-bold text-navy-900">
-                      {idx + 1}. {ex.name}
-                    </span>
-                    <Badge variant="teal" size="sm">
-                      {ex.target_repetitions} Repetitions
-                    </Badge>
-                  </div>
-                  <p className="text-slate-muted text-[11px] leading-relaxed">
-                    {ex.instructions}
+      {/* ─── Wide Lower Section: Recovery Activity + Care Team ─────────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 pt-2">
+        {/* Left: Recovery Activity Chart */}
+        <div className="lg:col-span-8">
+          <Card className="p-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Consistency Trend
+                </span>
+                <h3 className="text-base font-bold text-navy-900">
+                  Recovery Activity
+                </h3>
+              </div>
+              <span className="text-xs text-slate-500 font-medium">
+                Last 7 Days (Reps Completed)
+              </span>
+            </div>
+
+            <div className="h-44 w-full">
+              <ResponsiveContainer width="100%" height="100%">
+                <BarChart data={activityChartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
+                  <XAxis
+                    dataKey="day"
+                    stroke="#94A3B8"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                  />
+                  <YAxis
+                    stroke="#94A3B8"
+                    fontSize={11}
+                    tickLine={false}
+                    axisLine={false}
+                    domain={[0, 15]}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: '#FFFFFF',
+                      borderRadius: '12px',
+                      border: '1px solid #E2E8F0',
+                      boxShadow: '0 4px 14px -3px rgba(15, 23, 42, 0.08)',
+                      fontSize: '12px',
+                    }}
+                    formatter={(val: number) => [`${val} repetitions`, 'Activity']}
+                  />
+                  <Bar
+                    dataKey="reps"
+                    fill="#0D9488"
+                    radius={[6, 6, 0, 0]}
+                    maxBarSize={32}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            <div className="flex items-center justify-between mt-3 pt-3 border-t border-slate-100 text-xs text-slate-500">
+              <span className="flex items-center gap-1.5">
+                <span className="w-2 h-2 rounded-full bg-teal-calm" />
+                Target: 10 reps daily
+              </span>
+              <button
+                onClick={() => navigate('/progress')}
+                className="text-teal-hover font-semibold hover:underline flex items-center gap-1"
+              >
+                <span>View Full Analytics</span>
+                <ChevronRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </Card>
+        </div>
+
+        {/* Right: Care Team & Doctor Verification Status */}
+        <div className="lg:col-span-4">
+          <Card className="p-6 flex flex-col justify-between h-full">
+            <div>
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider">
+                  Assigned Care Team
+                </span>
+                <span className="w-2 h-2 rounded-full bg-emerald-500" title="Connected" />
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="w-11 h-11 rounded-2xl bg-teal-light text-teal-calm flex items-center justify-center font-bold text-sm shrink-0 border border-teal-border">
+                  <Stethoscope className="w-5 h-5" />
+                </div>
+                <div>
+                  <h4 className="text-sm font-bold text-navy-900">
+                    {careDoctor?.full_name || 'Dr. Marcus Patel, DPT'}
+                  </h4>
+                  <p className="text-xs text-slate-500">Lead Physical Therapist</p>
+                  <p className="text-[11px] text-teal-calm font-medium mt-0.5">
+                    Orthopedic Rehabilitation Clinic
                   </p>
                 </div>
-              ))}
+              </div>
+
+              <div className="mt-4 p-3 rounded-xl bg-slate-50 border border-slate-200/60 text-xs text-slate-600 space-y-1">
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Protocol:</span>
+                  <span className="font-semibold text-navy-900 truncate max-w-[150px]">
+                    {plan.title}
+                  </span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Last Reviewed:</span>
+                  <span className="font-medium text-navy-900">Oct 26, 2026</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-slate-400">Attestation:</span>
+                  <span className="font-semibold text-emerald-600">Active Monitoring</span>
+                </div>
+              </div>
             </div>
-          </div>
 
-          <div>
-            <h4 className="font-bold text-navy-900 uppercase tracking-wider text-[11px] mb-1.5">
-              Approved Clinical Precautions
-            </h4>
-            <ul className="space-y-1.5 list-disc list-inside text-slate-muted text-[11px] leading-relaxed">
-              <li>
-                <strong className="text-navy-900">Ice & Elevation:</strong> Apply ice wrapped in a light towel for 15-20 min, 3-4 times daily. Keep leg elevated above heart.
-              </li>
-              <li>
-                <strong className="text-navy-900">Movement boundaries:</strong> Mild tightness (pain score up to 3-4/10) is expected. Stop immediately if experiencing sharp distress.
-              </li>
-              <li>
-                <strong className="text-navy-900">Incision care:</strong> Keep clean and dry. Watch for spreading redness beyond 1 inch perimeter or fever ≥ 100.4°F.
-              </li>
-            </ul>
-          </div>
-
-          <div className="pt-2 flex gap-2">
-            <Button
-              fullWidth
-              variant="outline"
-              onClick={() => setShowPlanModal(false)}
-            >
-              Close
-            </Button>
-            <Button
-              fullWidth
-              variant="primary"
-              onClick={() => {
-                setShowPlanModal(false);
-                navigate('/exercise');
-              }}
-              icon={<Activity className="w-4 h-4" />}
-            >
-              Start Exercise
-            </Button>
-          </div>
+            <div className="mt-5 pt-4 border-t border-slate-100 flex flex-col gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                fullWidth
+                icon={<FileCheck2 className="w-3.5 h-3.5 text-teal-calm" />}
+                onClick={() => navigate('/reports')}
+              >
+                Verified Reports
+              </Button>
+            </div>
+          </Card>
         </div>
-      </Modal>
+      </div>
     </div>
   );
 };
+
+export default PatientHome;

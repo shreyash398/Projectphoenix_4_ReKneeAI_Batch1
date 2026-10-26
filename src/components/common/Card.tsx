@@ -14,9 +14,11 @@ export const Card: React.FC<CardProps> = ({
 }) => {
   return (
     <div
-      className={`bg-white rounded-xl border ${
-        highlight ? 'border-teal-calm ring-1 ring-teal-calm/20' : 'border-warm-border'
-      } shadow-soft p-4 sm:p-5 transition-shadow ${className}`}
+      className={`bg-white rounded-2xl border ${
+        highlight
+          ? 'border-teal-calm/60 ring-2 ring-teal-calm/10 shadow-card'
+          : 'border-slate-200/70 shadow-soft hover:shadow-card'
+      } p-4 sm:p-5 transition-all duration-200 ${className}`}
       {...props}
     >
       {children}

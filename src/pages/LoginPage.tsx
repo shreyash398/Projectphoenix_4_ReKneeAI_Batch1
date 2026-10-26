@@ -61,39 +61,39 @@ export const LoginPage: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-warm-bg flex items-center justify-center p-4">
-      <div className="max-w-md w-full space-y-5">
+      <div className="max-w-md w-full space-y-6">
         {/* Brand Header */}
         <div className="text-center space-y-2">
-          <div className="w-12 h-12 rounded-2xl bg-teal-calm text-white mx-auto flex items-center justify-center shadow-soft">
+          <div className="w-12 h-12 rounded-2xl bg-gradient-to-tr from-teal-calm to-teal-accent text-white mx-auto flex items-center justify-center shadow-soft">
             <Shield className="w-6 h-6 stroke-[2.5]" />
           </div>
           <div>
             <div className="flex items-center justify-center gap-2">
-              <h1 className="text-xl font-bold text-navy-900 tracking-tight">ReKnee AI</h1>
+              <h1 className="text-2xl font-extrabold text-navy-900 tracking-tight">ReKnee AI</h1>
               <Badge variant="warning" size="sm">
                 Prototype / Demo
               </Badge>
             </div>
-            <p className="text-xs text-slate-muted mt-1">
-              Post-Operative Knee Rehabilitation Companion
+            <p className="text-xs text-slate-500 mt-1 font-medium">
+              Connected Post-Operative Knee Rehabilitation Command Center
             </p>
-            <p className="text-[10px] text-amber-700 mt-1 font-medium">
-              Synthetic data only — not clinically validated
+            <p className="text-[10px] text-amber-700 mt-1 font-semibold uppercase tracking-wider">
+              Synthetic data only · not clinically validated
             </p>
           </div>
         </div>
 
         {/* Authentication Card */}
-        <Card className="p-6">
+        <Card className="p-6 border-slate-200/80 shadow-card">
           {/* Portal Selector Tabs */}
-          <div className="flex rounded-xl bg-warm-subtle p-1 mb-5 border border-warm-border">
+          <div className="flex rounded-xl bg-slate-100 p-1 mb-5 border border-slate-200/60">
             <button
               type="button"
               onClick={() => handleTabChange('patient')}
               className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
                 activeTab === 'patient'
                   ? 'bg-white text-navy-900 shadow-soft'
-                  : 'text-slate-muted hover:text-navy-900'
+                  : 'text-slate-500 hover:text-navy-900'
               }`}
             >
               <UserCheck className="w-3.5 h-3.5 text-teal-calm" />
@@ -105,7 +105,7 @@ export const LoginPage: React.FC = () => {
               className={`flex-1 py-2 text-xs font-bold rounded-lg transition-all flex items-center justify-center gap-1.5 ${
                 activeTab === 'clinician'
                   ? 'bg-white text-navy-900 shadow-soft'
-                  : 'text-slate-muted hover:text-navy-900'
+                  : 'text-slate-500 hover:text-navy-900'
               }`}
             >
               <Stethoscope className="w-3.5 h-3.5 text-teal-calm" />
