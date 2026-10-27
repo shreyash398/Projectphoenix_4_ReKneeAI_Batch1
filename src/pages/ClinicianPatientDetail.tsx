@@ -1,28 +1,25 @@
 // ReKnee AI - Clinician Patient Detail View
-// Adheres strictly to 01_PRD.md, 02_DESIGN.md, 04_DATABASE.md, 05_API.md, 11_AUTH_AUTHORIZATION.md, and 14_TESTING_QA.md
-// Displays comprehensive clinical recovery records for an authorized patient:
-// - Recovery plan & exercises
-// - Exercise sessions
-// - Symptom check-ins
-// - Progress analytics
-// - Triggered alerts & audit actions
-// - Grounded assistant questions & source citations
+// Follows prompt Section 6:
+// Grouped into:
+// 1. Recovery plan
+// 2. Exercise activity
+// 3. Check-ins
+// 4. Alerts
+// 5. Verification
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import {
   ArrowLeft,
   Activity,
-  ClipboardCheck,
-  BellRing,
-  BookOpen,
-  ShieldCheck,
-  ShieldAlert,
-  Calendar,
+  ClipboardList,
   AlertTriangle,
-  FileCheck,
+  FileCheck2,
+  BookOpen,
   CheckCircle,
-  HelpCircle,
+  Clock,
+  ShieldAlert,
+  Download,
   CheckCircle2,
 } from 'lucide-react';
 import { Card } from '../components/common/Card';
@@ -30,7 +27,6 @@ import { Button } from '../components/common/Button';
 import { Badge, BadgeVariant } from '../components/common/Badge';
 import { Modal } from '../components/common/Modal';
 import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
-import { KneeVisual } from '../components/common/KneeVisual';
 import { repository } from '../lib/supabase/repository';
 import { useAuth } from '../contexts/AuthContext';
 import {
@@ -40,11 +36,11 @@ import {
   ExerciseSession,
   SymptomCheckin,
   Alert,
-  AssistantQuestion,
-  KnowledgeArticle,
+  RecoveryVerification,
 } from '../types/database';
+import { generateRecoveryCompletionPdf, downloadReportPdf } from '../lib/reports/pdfGenerator';
 
-type DetailTab = 'overview' | 'sessions' | 'checkins' | 'alerts' | 'assistant';
+type PatientSection = 'plan' | 'exercises' | 'checkins' | 'alerts' | 'verification';
 
 export const ClinicianPatientDetail: React.FC = () => {
   const { id: patientId } = useParams<{ id: string }>();
@@ -60,9 +56,8 @@ export const ClinicianPatientDetail: React.FC = () => {
   const [sessions, setSessions] = useState<ExerciseSession[]>([]);
   const [checkins, setCheckins] = useState<SymptomCheckin[]>([]);
   const [alerts, setAlerts] = useState<Alert[]>([]);
-  const [assistantQuestions, setAssistantQuestions] = useState<AssistantQuestion[]>([]);
-  const [knowledgeArticles, setKnowledgeArticles] = useState<KnowledgeArticle[]>([]);
-  const [activeTab, setActiveTab] = useState<DetailTab>('overview');
+  const [verifications, setVerifications] = useState<RecoveryVerification[]>([]);
+  const [activeSection, setActiveSection] = useState<PatientSection>('plan');
 
   // Review modal state
   const [selectedAlert, setSelectedAlert] = useState<Alert | null>(null);
@@ -70,73 +65,65 @@ export const ClinicianPatientDetail: React.FC = () => {
   const [actionNotes, setActionNotes] = useState<string>('');
   const [isSubmittingAction, setIsSubmittingAction] = useState<boolean>(false);
 
-  useEffect(() => {
+  const loadData = useCallback(async () => {
     if (!patientId) return;
+    setIsLoading(true);
 
-    const loadData = async () => {
-      setIsLoading(true);
+    const authorized = repository.isClinicianAuthorizedForPatient(activeProfile.id, patientId);
+    if (!authorized) {
+      setIsAuthorized(false);
+      setIsLoading(false);
+      return;
+    }
+    setIsAuthorized(true);
 
-      // 1. Authorization check: Clinician must be authorized for this patient
-      const authorized = repository.isClinicianAuthorizedForPatient(activeProfile.id, patientId);
-      if (!authorized) {
-        setIsAuthorized(false);
-        setIsLoading(false);
-        return;
+    try {
+      const [
+        patientProfile,
+        recoveryPlan,
+        sessionList,
+        checkinList,
+        alertList,
+        verificationList,
+      ] = await Promise.all([
+        repository.getPatientProfile(patientId),
+        repository.getRecoveryPlan(patientId),
+        repository.getExerciseSessions(patientId),
+        repository.getSymptomCheckins(patientId),
+        repository.getAlerts(patientId),
+        repository.getVerifications(patientId),
+      ]);
+
+      setPatient(patientProfile);
+      setPlan(recoveryPlan);
+      setSessions(sessionList);
+      setCheckins(checkinList);
+      setAlerts(alertList);
+      setVerifications(verificationList);
+
+      if (recoveryPlan) {
+        const exerciseList = await repository.getPlanExercises(recoveryPlan.id);
+        setExercises(exerciseList);
       }
-      setIsAuthorized(true);
-
-      try {
-        const [
-          patientProfile,
-          recoveryPlan,
-          sessionList,
-          checkinList,
-          alertList,
-          questionsList,
-          articles,
-        ] = await Promise.all([
-          repository.getPatientProfile(patientId),
-          repository.getRecoveryPlan(patientId),
-          repository.getExerciseSessions(patientId),
-          repository.getSymptomCheckins(patientId),
-          repository.getAlerts(patientId),
-          repository.getAssistantQuestions(patientId),
-          repository.getApprovedKnowledgeArticles(),
-        ]);
-
-        setPatient(patientProfile);
-        setPlan(recoveryPlan);
-        setSessions(sessionList);
-        setCheckins(checkinList);
-        setAlerts(alertList);
-        setAssistantQuestions(questionsList);
-        setKnowledgeArticles(articles);
-
-        if (recoveryPlan) {
-          const exerciseList = await repository.getPlanExercises(recoveryPlan.id);
-          setExercises(exerciseList);
-        }
-      } catch (err) {
-        console.error('Failed to load patient records:', err);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    loadData();
+    } catch (err) {
+      console.error('Failed to load patient records:', err);
+    } finally {
+      setIsLoading(false);
+    }
   }, [patientId, activeProfile.id]);
+
+  useEffect(() => {
+    loadData();
+  }, [loadData]);
 
   const handleAcknowledgeAlert = async (alertId: string) => {
     try {
       await repository.acknowledgeAlert(
         alertId,
         activeProfile.id,
-        'Clinician acknowledged alert directly from Patient Detail chart.'
+        'Clinician acknowledged alert.'
       );
-      if (patientId) {
-        const updatedAlerts = await repository.getAlerts(patientId);
-        setAlerts(updatedAlerts);
-      }
+      await loadData();
     } catch (err) {
       console.error('Failed to acknowledge alert:', err);
     }
@@ -154,10 +141,7 @@ export const ClinicianPatientDetail: React.FC = () => {
       );
       setSelectedAlert(null);
       setActionNotes('');
-      if (patientId) {
-        const updatedAlerts = await repository.getAlerts(patientId);
-        setAlerts(updatedAlerts);
-      }
+      await loadData();
     } catch (err) {
       console.error('Failed to submit review:', err);
     } finally {
@@ -165,39 +149,52 @@ export const ClinicianPatientDetail: React.FC = () => {
     }
   };
 
-  const getSeverityBadgeVariant = (sev: Alert['severity']): BadgeVariant => {
-    switch (sev) {
-      case 'critical':
-        return 'error';
-      case 'urgent':
-        return 'warning';
-      case 'moderate':
-        return 'engagement';
-      default:
-        return 'neutral';
-    }
+  const handleDownloadPdf = (v: RecoveryVerification) => {
+    if (!plan || !patient) return;
+    const report = generateRecoveryCompletionPdf({
+      verification: v,
+      patient,
+      clinician: activeProfile,
+      plan,
+      exercises,
+      sessions,
+      checkins,
+    });
+    downloadReportPdf(report);
   };
 
-  // Access Denied Boundary
+  const completedSessions = useMemo(
+    () => sessions.filter((s) => s.status === 'completed'),
+    [sessions]
+  );
+
+  const avgPainScore = useMemo(() => {
+    if (checkins.length === 0) return null;
+    const sum = checkins.reduce((acc, c) => acc + c.pain_score, 0);
+    return (sum / checkins.length).toFixed(1);
+  }, [checkins]);
+
+  const unreviewedAlerts = alerts.filter(
+    (a) => a.status === 'new' || a.status === 'acknowledged'
+  );
+
   if (!isAuthorized) {
     return (
-      <div className="max-w-2xl mx-auto py-8">
-        <Card className="text-center p-8 border-rose-200 bg-rose-50/40">
-          <ShieldAlert className="w-12 h-12 text-status-error mx-auto mb-3" />
+      <div className="max-w-xl mx-auto py-8">
+        <Card className="text-center p-6 border-rose-200 bg-rose-50/40 space-y-3">
+          <ShieldAlert className="w-10 h-10 text-rose-600 mx-auto" />
           <h2 className="text-base font-bold text-navy-900">Access Restricted</h2>
-          <p className="text-xs text-slate-muted mt-1 max-w-md mx-auto leading-relaxed">
-            You do not have an active clinical authorization to access this patient’s recovery records. Clinicians may only view patients explicitly assigned to their roster.
+          <p className="text-xs text-slate-600">
+            You do not have authorization to view this patient chart.
           </p>
-          <div className="mt-4">
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => navigate('/clinician/patients')}
-              icon={<ArrowLeft className="w-4 h-4" />}
-            >
-              Back to Authorized Patient Roster
-            </Button>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigate('/clinician/patients')}
+            icon={<ArrowLeft className="w-4 h-4" />}
+          >
+            Back to Patients
+          </Button>
         </Card>
       </div>
     );
@@ -205,7 +202,7 @@ export const ClinicianPatientDetail: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div className="space-y-4 max-w-4xl mx-auto">
+      <div className="space-y-4 max-w-4xl mx-auto py-4">
         <LoadingSkeleton lines={2} />
         <LoadingSkeleton lines={4} />
         <LoadingSkeleton lines={4} />
@@ -213,333 +210,186 @@ export const ClinicianPatientDetail: React.FC = () => {
     );
   }
 
-  const unreviewedAlerts = alerts.filter((a) => a.status === 'new');
-  const avgPainScore =
-    checkins.length > 0
-      ? (checkins.reduce((acc, c) => acc + c.pain_score, 0) / checkins.length).toFixed(1)
-      : 'N/A';
-  const totalCompletedSessions = sessions.filter((s) => s.status === 'completed').length;
-  const completionPercentage = Math.min(
-    100,
-    Math.round((totalCompletedSessions / Math.max(1, 10)) * 100)
-  );
-
   return (
-    <div className="space-y-6 max-w-6xl mx-auto pb-10">
-      {/* ─── Top Navigation & Authorization Bar ──────────────────────── */}
-      <div className="flex items-center justify-between pb-2 border-b border-slate-200/60">
-        <button
-          onClick={() => navigate('/clinician/patients')}
-          className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-navy-900 transition-colors p-1 rounded-xl"
-        >
-          <ArrowLeft className="w-4 h-4" />
-          <span>Back to Patient Roster</span>
-        </button>
+    <div className="space-y-6 max-w-4xl mx-auto pb-10">
+      {/* Top navigation */}
+      <button
+        onClick={() => navigate('/clinician/patients')}
+        className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-navy-900 transition-colors"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        <span>Back to Patients</span>
+      </button>
 
-        <div className="flex items-center gap-2">
-          <Badge variant="teal" icon={<ShieldCheck className="w-3.5 h-3.5" />}>
-            Authorized Clinical Record
-          </Badge>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => navigate('/clinician/verifications')}
-            className="text-xs h-8 px-3 bg-white border-teal-border text-teal-calm hover:bg-teal-light/50"
-            icon={<FileCheck className="w-3.5 h-3.5" />}
-          >
-            Verification Request
-          </Button>
-        </div>
-      </div>
-
-      {/* ─── Patient Profile Header ──────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white p-5 rounded-2xl border border-slate-200/80 shadow-soft">
+      {/* Patient Header */}
+      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-soft flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-3.5">
-          <div className="w-12 h-12 rounded-2xl bg-navy-900 text-white flex items-center justify-center font-bold text-lg shadow-soft shrink-0">
+          <div className="w-11 h-11 rounded-xl bg-navy-900 text-white flex items-center justify-center font-bold text-base shrink-0">
             {patient?.full_name?.charAt(0) || 'P'}
           </div>
           <div>
-            <div className="flex items-center gap-2.5">
-              <h1 className="text-xl font-bold text-navy-900 tracking-tight">
-                {patient?.full_name || 'Patient Chart'}
-              </h1>
-              <Badge variant="neutral" size="sm">
-                ID: {patientId?.slice(0, 8)}...
-              </Badge>
+            <div className="flex items-center gap-2">
+              <h1 className="text-lg font-bold text-navy-900">{patient?.full_name || 'Patient Chart'}</h1>
               {unreviewedAlerts.length > 0 ? (
-                <Badge variant="error" size="sm" icon={<AlertTriangle className="w-3.5 h-3.5" />}>
-                  {unreviewedAlerts.length} Active Alert{unreviewedAlerts.length > 1 ? 's' : ''}
+                <Badge variant="error" size="sm">
+                  {unreviewedAlerts.length} alert{unreviewedAlerts.length > 1 ? 's' : ''}
                 </Badge>
               ) : (
-                <Badge variant="success" size="sm" icon={<CheckCircle className="w-3.5 h-3.5" />}>
-                  Protocol Stable
+                <Badge variant="success" size="sm">
+                  On track
                 </Badge>
               )}
             </div>
-            <p className="text-xs text-slate-500 mt-1 flex items-center gap-2">
-              <span>Protocol: <strong className="text-teal-calm font-semibold">{plan?.title || 'Right Knee Protocol'}</strong></span>
-              <span className="text-slate-300">·</span>
-              <span>Attending: <strong>Dr. Marcus Patel, DPT</strong></span>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Protocol: <span className="text-navy-900 font-semibold">{plan?.title || 'Recovery Plan'}</span>
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-2 self-start sm:self-auto text-xs text-slate-500">
-          <Calendar className="w-4 h-4 text-teal-calm" />
-          <span>Surgical Day 14 · Post-Op Monitoring</span>
-        </div>
-      </div>
-
-      {/* ─── Hero Patient Insight Composition (Center Visual + Right Cards) ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
-        {/* Center: Knee Visualization */}
-        <div className="lg:col-span-8">
-          <KneeVisual
-            focusArea={plan?.title || 'Right Knee Recovery Focus'}
-            dayPostOp={14}
-            className="w-full shadow-soft"
-          />
-        </div>
-
-        {/* Right: 4 Compact Information Cards */}
-        <div className="lg:col-span-4 space-y-3.5">
-          <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-soft">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-              Exercise Completion
-            </span>
-            <div className="flex items-baseline justify-between mt-1">
-              <span className="text-2xl font-bold text-navy-900 tabular-nums">
-                {completionPercentage}%
-              </span>
-              <Badge variant="teal" size="sm">Target 80%+</Badge>
-            </div>
-            <p className="text-xs text-slate-400 mt-1">
-              {totalCompletedSessions} completed sessions on record
-            </p>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-soft">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-              Total Sessions
-            </span>
-            <div className="flex items-baseline justify-between mt-1">
-              <span className="text-2xl font-bold text-navy-900 tabular-nums">
-                {sessions.length}
-              </span>
-              <Badge variant="success" size="sm">
-                {totalCompletedSessions} Validated
-              </Badge>
-            </div>
-            <p className="text-xs text-slate-400 mt-1">
-              Prescribed Seated Extension Reps
-            </p>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-soft">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-              Logged Check-ins
-            </span>
-            <div className="flex items-baseline justify-between mt-1">
-              <span className="text-2xl font-bold text-navy-900 tabular-nums">
-                {checkins.length}
-              </span>
-              <Badge variant="neutral" size="sm">Daily Triage</Badge>
-            </div>
-            <p className="text-xs text-slate-400 mt-1">
-              Average pain across logs: {avgPainScore}/10
-            </p>
-          </div>
-
-          <div className="p-4 rounded-2xl bg-white border border-slate-200/80 shadow-soft">
-            <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
-              Latest Pain Score
-            </span>
-            <div className="flex items-baseline justify-between mt-1">
-              <span className="text-2xl font-bold text-navy-900 tabular-nums">
-                {checkins.length > 0 ? `${checkins[0].pain_score} / 10` : 'None'}
-              </span>
-              {checkins.length > 0 && checkins[0].pain_score >= 8 ? (
-                <Badge variant="error" size="sm">High Alert</Badge>
-              ) : (
-                <Badge variant="success" size="sm">Tolerable</Badge>
-              )}
-            </div>
-            <p className="text-xs text-slate-400 mt-1">
-              {checkins.length > 0 && checkins[0].pain_score >= 8
-                ? 'Clinical follow-up recommended'
-                : 'Consistent with post-op milestone'}
-            </p>
-          </div>
+        <div className="flex items-center gap-3 text-xs text-slate-500">
+          <span>{completedSessions.length} completed sessions</span>
+          <span>•</span>
+          <span>Avg pain: {avgPainScore ? `${avgPainScore}/10` : 'None'}</span>
         </div>
       </div>
 
-      {/* Navigation Tabs */}
-      <div className="flex gap-1.5 border-b border-warm-border pb-2 text-xs overflow-x-auto no-scrollbar">
+      {/* 5 Section Tabs */}
+      <div className="flex gap-1.5 border-b border-slate-200 pb-2 text-xs overflow-x-auto no-scrollbar">
         <button
-          onClick={() => setActiveTab('overview')}
-          className={`px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 whitespace-nowrap ${
-            activeTab === 'overview'
+          onClick={() => setActiveSection('plan')}
+          className={`px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
+            activeSection === 'plan'
               ? 'bg-navy-900 text-white'
-              : 'bg-white text-slate-muted hover:bg-warm-subtle'
+              : 'bg-white text-slate-600 hover:bg-slate-100'
           }`}
         >
           <BookOpen className="w-3.5 h-3.5" />
-          <span>Recovery Plan</span>
+          <span>Recovery plan</span>
         </button>
 
         <button
-          onClick={() => setActiveTab('sessions')}
-          className={`px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 whitespace-nowrap ${
-            activeTab === 'sessions'
+          onClick={() => setActiveSection('exercises')}
+          className={`px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
+            activeSection === 'exercises'
               ? 'bg-navy-900 text-white'
-              : 'bg-white text-slate-muted hover:bg-warm-subtle'
+              : 'bg-white text-slate-600 hover:bg-slate-100'
           }`}
         >
           <Activity className="w-3.5 h-3.5" />
-          <span>Exercise Sessions ({sessions.length})</span>
+          <span>Exercise activity ({sessions.length})</span>
         </button>
 
         <button
-          onClick={() => setActiveTab('checkins')}
-          className={`px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 whitespace-nowrap ${
-            activeTab === 'checkins'
+          onClick={() => setActiveSection('checkins')}
+          className={`px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
+            activeSection === 'checkins'
               ? 'bg-navy-900 text-white'
-              : 'bg-white text-slate-muted hover:bg-warm-subtle'
+              : 'bg-white text-slate-600 hover:bg-slate-100'
           }`}
         >
-          <ClipboardCheck className="w-3.5 h-3.5" />
-          <span>Symptom Check-ins ({checkins.length})</span>
+          <ClipboardList className="w-3.5 h-3.5" />
+          <span>Check-ins ({checkins.length})</span>
         </button>
 
         <button
-          onClick={() => setActiveTab('alerts')}
-          className={`px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 whitespace-nowrap ${
-            activeTab === 'alerts'
+          onClick={() => setActiveSection('alerts')}
+          className={`px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
+            activeSection === 'alerts'
               ? 'bg-navy-900 text-white'
-              : 'bg-white text-slate-muted hover:bg-warm-subtle'
+              : 'bg-white text-slate-600 hover:bg-slate-100'
           }`}
         >
-          <BellRing className="w-3.5 h-3.5" />
+          <AlertTriangle className="w-3.5 h-3.5" />
           <span>Alerts ({alerts.length})</span>
           {unreviewedAlerts.length > 0 && (
-            <span className="w-2 h-2 rounded-full bg-status-error" />
+            <span className="w-2 h-2 rounded-full bg-rose-600" />
           )}
         </button>
 
         <button
-          onClick={() => setActiveTab('assistant')}
-          className={`px-3 py-1.5 rounded-lg font-medium transition-colors flex items-center gap-1.5 whitespace-nowrap ${
-            activeTab === 'assistant'
+          onClick={() => setActiveSection('verification')}
+          className={`px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
+            activeSection === 'verification'
               ? 'bg-navy-900 text-white'
-              : 'bg-white text-slate-muted hover:bg-warm-subtle'
+              : 'bg-white text-slate-600 hover:bg-slate-100'
           }`}
         >
-          <HelpCircle className="w-3.5 h-3.5" />
-          <span>Assistant Q&A ({assistantQuestions.length})</span>
+          <FileCheck2 className="w-3.5 h-3.5" />
+          <span>Verification ({verifications.length})</span>
         </button>
       </div>
 
-      {/* TAB 1: RECOVERY PLAN */}
-      {activeTab === 'overview' && (
+      {/* ─── SECTION 1: Recovery Plan ─────────────────────────────────── */}
+      {activeSection === 'plan' && (
         <div className="space-y-4">
-          <Card className="p-4 border-warm-border">
-            <div className="flex items-center justify-between pb-3 border-b border-warm-border">
-              <div>
-                <h3 className="text-sm font-bold text-navy-900">{plan?.title || 'Recovery Plan'}</h3>
-                <p className="text-xs text-slate-muted mt-0.5 flex items-center gap-1.5">
-                  <Calendar className="w-3 h-3 text-teal-calm" />
-                  <span>
-                    Duration: {plan?.start_date} to {plan?.end_date || 'Ongoing'}
-                  </span>
-                </p>
-              </div>
-              <Badge variant="teal" size="sm">
-                Status: {plan?.status}
-              </Badge>
+          <Card className="p-4 bg-white space-y-3">
+            <div className="flex items-center justify-between pb-2 border-b border-slate-100">
+              <h2 className="text-sm font-bold text-navy-900">{plan?.title || 'Prescribed Protocol'}</h2>
+              <Badge variant="teal" size="sm">Active</Badge>
             </div>
-
-            {/* Prescribed Exercises */}
-            <div className="mt-4 space-y-3">
-              <h4 className="text-xs font-bold text-navy-900 uppercase tracking-wider">
-                Assigned Protocol Exercises
-              </h4>
-
-              {exercises.length === 0 ? (
-                <p className="text-xs text-slate-muted">No exercises assigned to this plan.</p>
-              ) : (
-                <div className="space-y-2.5">
-                  {exercises.map((ex) => (
-                    <div
-                      key={ex.id}
-                      className="bg-warm-bg p-3.5 rounded-xl border border-warm-border text-xs space-y-1.5"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-navy-900 text-xs sm:text-sm">
-                          {ex.name}
-                        </span>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[11px] font-semibold text-teal-hover bg-teal-light px-2 py-0.5 rounded-md border border-teal-border">
-                            Target: {ex.target_repetitions} reps
-                          </span>
-                          <span className="text-[11px] font-semibold text-slate-muted bg-white px-2 py-0.5 rounded-md border border-warm-border">
-                            {ex.target_duration_seconds}s
-                          </span>
-                        </div>
-                      </div>
-                      <p className="text-slate-muted text-xs leading-relaxed">{ex.instructions}</p>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+            <p className="text-xs text-slate-600 leading-relaxed">
+              Prescribed post-operative rehabilitation protocol with daily flexion and extension targets.
+            </p>
+            <p className="text-[11px] text-slate-400">
+              Started: {plan?.start_date || 'N/A'} • End: {plan?.end_date || 'N/A'}
+            </p>
           </Card>
+
+          <div className="space-y-2">
+            <h3 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              Prescribed Exercises ({exercises.length})
+            </h3>
+            {exercises.map((ex) => (
+              <Card key={ex.id} className="p-3 bg-white flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-xs font-bold text-navy-900">{ex.name}</p>
+                  <p className="text-[11px] text-slate-500 mt-0.5">{ex.instructions}</p>
+                </div>
+                <Badge variant="neutral" size="sm">
+                  Target: {ex.target_repetitions} reps
+                </Badge>
+              </Card>
+            ))}
+          </div>
         </div>
       )}
 
-      {/* TAB 2: EXERCISE SESSIONS */}
-      {activeTab === 'sessions' && (
+      {/* ─── SECTION 2: Exercise Activity ─────────────────────────────── */}
+      {activeSection === 'exercises' && (
         <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              Completed Exercise Sessions
+            </h2>
+            <span className="text-xs text-slate-500">
+              {completedSessions.length} completed of {sessions.length} recorded
+            </span>
+          </div>
+
           {sessions.length === 0 ? (
-            <Card className="text-center py-8">
-              <Activity className="w-8 h-8 text-slate-subtle mx-auto mb-2" />
-              <p className="text-xs text-slate-muted font-medium">No exercise sessions logged yet.</p>
+            <Card className="p-6 text-center text-xs text-slate-400 bg-white">
+              No exercise sessions recorded yet.
             </Card>
           ) : (
-            sessions.map((sess) => (
-              <Card key={sess.id} className="p-3.5 border-warm-border text-xs">
-                <div className="flex items-center justify-between pb-2 border-b border-warm-border/70">
-                  <div className="flex items-center gap-2">
-                    <Activity className="w-4 h-4 text-teal-calm" />
-                    <span className="font-bold text-navy-900">
-                      Session — {sess.repetitions} Repetitions
-                    </span>
-                    <Badge variant={sess.status === 'completed' ? 'success' : 'warning'} size="sm">
-                      {sess.status.replace('_', ' ')}
-                    </Badge>
-                  </div>
-                  <span className="text-[11px] text-slate-subtle">
-                    {new Date(sess.started_at).toLocaleString([], {
+            sessions.map((s) => (
+              <Card key={s.id} className="p-3 bg-white flex items-center justify-between">
+                <div>
+                  <p className="text-xs font-bold text-navy-900">Seated Knee Flexion & Extension</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    {new Date(s.started_at).toLocaleString([], {
                       month: 'short',
                       day: 'numeric',
                       hour: '2-digit',
                       minute: '2-digit',
-                    })}
-                  </span>
+                    })}{' '}
+                    • {Math.round(s.duration_seconds / 60)}m
+                  </p>
                 </div>
-
-                <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 mt-2 pt-1 text-[11px] text-slate-muted">
-                  <div>
-                    <span className="text-slate-subtle block text-[10px]">Duration:</span>
-                    <strong className="text-navy-900">{sess.duration_seconds} seconds</strong>
-                  </div>
-                  <div>
-                    <span className="text-slate-subtle block text-[10px]">Measurement:</span>
-                    <span className="font-medium text-teal-hover">{sess.measurement_mode}</span>
-                  </div>
-                  <div>
-                    <span className="text-slate-subtle block text-[10px]">Session Status:</span>
-                    <span className="font-medium text-navy-900">{sess.status}</span>
-                  </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs font-bold text-navy-900">{s.repetitions} reps</span>
+                  <Badge variant={s.status === 'completed' ? 'success' : 'warning'} size="sm">
+                    {s.status === 'completed' ? 'Completed' : 'Stopped early'}
+                  </Badge>
                 </div>
               </Card>
             ))
@@ -547,38 +397,32 @@ export const ClinicianPatientDetail: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 3: SYMPTOM CHECK-INS */}
-      {activeTab === 'checkins' && (
+      {/* ─── SECTION 3: Check-ins ─────────────────────────────────────── */}
+      {activeSection === 'checkins' && (
         <div className="space-y-3">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              Patient Check-ins ({checkins.length})
+            </h2>
+            <span className="text-xs text-slate-500">
+              {avgPainScore ? `Average pain: ${avgPainScore}/10` : 'No logs'}
+            </span>
+          </div>
+
           {checkins.length === 0 ? (
-            <Card className="text-center py-8">
-              <ClipboardCheck className="w-8 h-8 text-slate-subtle mx-auto mb-2" />
-              <p className="text-xs text-slate-muted font-medium">No symptom check-ins submitted yet.</p>
+            <Card className="p-6 text-center text-xs text-slate-400 bg-white">
+              No check-ins submitted yet.
             </Card>
           ) : (
             checkins.map((chk) => {
-              const activeSymptoms = Object.entries(chk.symptoms)
-                .filter(([, val]) => val === true)
+              const symptoms = Object.entries((chk.symptoms || {}) as Record<string, boolean>)
+                .filter(([_, val]) => Boolean(val))
                 .map(([key]) => key.replace(/_/g, ' '));
 
               return (
-                <Card key={chk.id} className="p-3.5 border-warm-border text-xs">
-                  <div className="flex items-center justify-between pb-2 border-b border-warm-border/70">
-                    <div className="flex items-center gap-2">
-                      <Badge
-                        variant={
-                          chk.pain_score >= 7
-                            ? 'error'
-                            : chk.pain_score >= 4
-                            ? 'warning'
-                            : 'success'
-                        }
-                        size="sm"
-                      >
-                        Pain: {chk.pain_score}/10
-                      </Badge>
-                    </div>
-                    <span className="text-[11px] text-slate-subtle">
+                <Card key={chk.id} className="p-3 bg-white space-y-1.5">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-semibold text-slate-500">
                       {new Date(chk.created_at).toLocaleString([], {
                         month: 'short',
                         day: 'numeric',
@@ -586,23 +430,23 @@ export const ClinicianPatientDetail: React.FC = () => {
                         minute: '2-digit',
                       })}
                     </span>
+                    <Badge variant={chk.pain_score >= 8 ? 'error' : chk.pain_score >= 5 ? 'warning' : 'success'} size="sm">
+                      Pain: {chk.pain_score} / 10
+                    </Badge>
                   </div>
 
-                  {activeSymptoms.length > 0 && (
-                    <div className="flex flex-wrap gap-1.5 mt-2">
-                      {activeSymptoms.map((sym, idx) => (
-                        <span
-                          key={idx}
-                          className="text-[10px] bg-warm-bg px-2 py-0.5 rounded-full border border-warm-border text-slate-muted capitalize"
-                        >
-                          {sym}
+                  {symptoms.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {symptoms.map((s) => (
+                        <span key={s} className="text-[10px] bg-slate-100 text-slate-600 px-2 py-0.5 rounded-full capitalize">
+                          {s}
                         </span>
                       ))}
                     </div>
                   )}
 
                   {chk.notes && (
-                    <p className="mt-2 text-xs text-navy-900 bg-warm-bg/70 p-2 rounded-lg border border-warm-border/80">
+                    <p className="text-xs text-slate-600 italic bg-slate-50 p-2 rounded-lg">
                       "{chk.notes}"
                     </p>
                   )}
@@ -613,77 +457,70 @@ export const ClinicianPatientDetail: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 4: ALERTS */}
-      {activeTab === 'alerts' && (
+      {/* ─── SECTION 4: Alerts ────────────────────────────────────────── */}
+      {activeSection === 'alerts' && (
         <div className="space-y-3">
+          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+            Clinical Alerts ({alerts.length})
+          </h2>
+
           {alerts.length === 0 ? (
-            <Card className="text-center py-8">
-              <CheckCircle2 className="w-8 h-8 text-status-success mx-auto mb-2" />
-              <p className="text-xs text-slate-muted font-medium">No alerts triggered for this patient.</p>
+            <Card className="p-6 text-center text-xs text-slate-400 bg-white">
+              No alerts generated for this patient.
             </Card>
           ) : (
-            alerts.map((alt) => (
+            alerts.map((alert) => (
               <Card
-                key={alt.id}
-                className={`p-3.5 border text-xs shadow-soft ${
-                  alt.status === 'new'
-                    ? 'border-l-4 border-l-status-warning bg-amber-50/20'
-                    : 'bg-white'
+                key={alert.id}
+                className={`p-4 bg-white shadow-soft flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-l-4 ${
+                  alert.category === 'clinical_review'
+                    ? 'border-l-rose-500'
+                    : 'border-l-teal-calm'
                 }`}
               >
-                <div className="flex items-center justify-between pb-2 mb-2 border-b border-warm-border/70">
+                <div className="space-y-1">
                   <div className="flex items-center gap-2">
-                    <Badge variant={getSeverityBadgeVariant(alt.severity)} size="sm">
-                      {alt.severity.toUpperCase()}
+                    <Badge variant={alert.category === 'clinical_review' ? 'error' : 'teal'} size="sm">
+                      {alert.category === 'clinical_review' ? 'Clinical Review' : 'Reminder'}
                     </Badge>
-                    <Badge variant={alt.category === 'clinical_review' ? 'error' : 'teal'} size="sm">
-                      {alt.category}
+                    <Badge variant={alert.status === 'new' ? 'warning' : 'neutral'} size="sm">
+                      {alert.status}
                     </Badge>
                   </div>
-                  <Badge variant={alt.status === 'new' ? 'warning' : 'success'} size="sm">
-                    {alt.status}
-                  </Badge>
-                </div>
-
-                <p className="font-semibold text-navy-900 text-xs sm:text-sm mb-3">
-                  {alt.reason}
-                </p>
-
-                <div className="flex items-center justify-between pt-2 border-t border-warm-border/80">
-                  <span className="text-[10px] text-slate-subtle">
-                    {new Date(alt.created_at).toLocaleString([], {
+                  <p className="text-xs font-semibold text-navy-900">{alert.reason}</p>
+                  <p className="text-[11px] text-slate-400">
+                    {new Date(alert.created_at).toLocaleString([], {
                       month: 'short',
                       day: 'numeric',
                       hour: '2-digit',
                       minute: '2-digit',
                     })}
-                  </span>
+                  </p>
+                </div>
 
-                  <div className="flex items-center gap-2">
-                    {alt.status === 'new' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        onClick={() => handleAcknowledgeAlert(alt.id)}
-                        icon={<CheckCircle className="w-3.5 h-3.5" />}
-                      >
-                        Acknowledge
-                      </Button>
-                    )}
-                    {alt.status !== 'reviewed' && (
-                      <Button
-                        size="sm"
-                        variant="primary"
-                        onClick={() => {
-                          setSelectedAlert(alt);
-                          setActionNotes('');
-                        }}
-                        icon={<FileCheck className="w-3.5 h-3.5" />}
-                      >
-                        Review
-                      </Button>
-                    )}
-                  </div>
+                <div className="flex items-center gap-2">
+                  {alert.status === 'new' && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      onClick={() => handleAcknowledgeAlert(alert.id)}
+                      icon={<CheckCircle className="w-3.5 h-3.5" />}
+                    >
+                      Acknowledge
+                    </Button>
+                  )}
+                  {alert.status !== 'reviewed' && (
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      onClick={() => {
+                        setSelectedAlert(alert);
+                        setActionNotes('');
+                      }}
+                    >
+                      Review alert
+                    </Button>
+                  )}
                 </div>
               </Card>
             ))
@@ -691,68 +528,112 @@ export const ClinicianPatientDetail: React.FC = () => {
         </div>
       )}
 
-      {/* TAB 5: ASSISTANT INTERACTIONS */}
-      {activeTab === 'assistant' && (
+      {/* ─── SECTION 5: Verification ──────────────────────────────────── */}
+      {activeSection === 'verification' && (
         <div className="space-y-3">
-          <p className="text-xs text-slate-muted">
-            Audit trail of patient inquiries to the Recovery Knowledge Assistant. All answers are strictly grounded in approved guidelines.
-          </p>
+          <div className="flex items-center justify-between">
+            <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400">
+              Verification Status
+            </h2>
+            <Button
+              size="sm"
+              variant="outline"
+              onClick={() => navigate('/clinician/verifications')}
+              icon={<FileCheck2 className="w-3.5 h-3.5" />}
+            >
+              Verification Requests Queue
+            </Button>
+          </div>
 
-          {assistantQuestions.length === 0 ? (
-            <Card className="text-center py-8">
-              <HelpCircle className="w-8 h-8 text-slate-subtle mx-auto mb-2" />
-              <p className="text-xs text-slate-muted font-medium">
-                No knowledge assistant questions asked yet.
-              </p>
+          {verifications.length === 0 ? (
+            <Card className="p-6 text-center text-xs text-slate-400 bg-white">
+              No verification requests submitted for this patient yet.
             </Card>
           ) : (
-            assistantQuestions.map((q) => {
-              const citedArticles = knowledgeArticles.filter((art) =>
-                q.source_article_ids?.includes(art.id)
-              );
+            verifications.map((v) => {
+              const isApproved = v.status === 'approved';
+              const isPending = v.status === 'requested';
+              const isRejected = v.status === 'rejected';
+
+              const statusBadgeVariant: BadgeVariant = isApproved
+                ? 'success'
+                : isPending
+                ? 'warning'
+                : 'error';
+
+              const statusLabel = isApproved
+                ? 'Verified'
+                : isPending
+                ? 'Pending review'
+                : 'Changes requested';
 
               return (
-                <Card key={q.id} className="p-3.5 border-warm-border text-xs space-y-2">
-                  <div className="flex items-center justify-between pb-1.5 border-b border-warm-border/70">
-                    <span className="text-[10px] font-bold text-teal-calm uppercase tracking-wide">
-                      Patient Question
-                    </span>
-                    <span className="text-[10px] text-slate-subtle">
-                      {new Date(q.created_at).toLocaleString([], {
-                        month: 'short',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </span>
-                  </div>
+                <Card key={v.id} className="p-4 bg-white space-y-3">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="text-sm font-bold text-navy-900">
+                          Recovery Activity Report
+                        </h3>
+                        <Badge variant={statusBadgeVariant} size="sm">
+                          {statusLabel}
+                        </Badge>
+                      </div>
+                      <p className="text-[11px] text-slate-400 mt-0.5">
+                        Requested: {new Date(v.requested_at).toLocaleDateString([], {
+                          month: 'short',
+                          day: 'numeric',
+                          year: 'numeric',
+                        })}
+                      </p>
+                    </div>
 
-                  <p className="font-semibold text-navy-900 text-xs">
-                    "{q.question}"
-                  </p>
-
-                  {q.answer && (
-                    <div className="bg-warm-bg p-2.5 rounded-lg border border-warm-border space-y-1.5">
-                      <span className="text-[10px] font-bold text-slate-muted uppercase tracking-wider block">
-                        Grounded Response
-                      </span>
-                      <p className="text-slate-muted text-xs leading-relaxed">{q.answer}</p>
-
-                      {citedArticles.length > 0 && (
-                        <div className="pt-2 border-t border-warm-border/60">
-                          <span className="text-[10px] font-semibold text-navy-900 block mb-1">
-                            Cited Clinical Sources:
-                          </span>
-                          <div className="space-y-1">
-                            {citedArticles.map((art) => (
-                              <p key={art.id} className="text-[11px] text-teal-hover truncate">
-                                • {art.title} ({art.source_label} v{art.version})
-                              </p>
-                            ))}
-                          </div>
-                        </div>
+                    <div className="flex items-center gap-2">
+                      {isPending && (
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          onClick={() => navigate('/clinician/verifications')}
+                        >
+                          Review verification
+                        </Button>
+                      )}
+                      {isApproved && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => handleDownloadPdf(v)}
+                          icon={<Download className="w-3.5 h-3.5" />}
+                        >
+                          Download PDF
+                        </Button>
                       )}
                     </div>
+                  </div>
+
+                  {isApproved && (
+                    <div className="p-3 bg-teal-light/40 rounded-xl text-xs space-y-1">
+                      <p className="font-semibold text-teal-900">
+                        Verified by {v.clinician_name || 'Clinician'} on {v.verification_date}
+                      </p>
+                      {v.verification_note && (
+                        <p className="text-slate-600 italic">"{v.verification_note}"</p>
+                      )}
+                    </div>
+                  )}
+
+                  {isRejected && (
+                    <div className="p-3 bg-rose-50 rounded-xl text-xs text-rose-900 space-y-1">
+                      <p className="font-semibold">Changes requested:</p>
+                      <p className="italic">"{v.verification_note}"</p>
+                    </div>
+                  )}
+
+                  {isPending && (
+                    <p className="text-xs text-amber-800 flex items-center gap-1.5">
+                      <Clock className="w-3.5 h-3.5 text-amber-600" />
+                      <span>Awaiting clinical verification sign-off.</span>
+                    </p>
                   )}
                 </Card>
               );
@@ -761,69 +642,68 @@ export const ClinicianPatientDetail: React.FC = () => {
         </div>
       )}
 
-      {/* Review Modal */}
+      {/* Review Alert Modal */}
       <Modal
         isOpen={Boolean(selectedAlert)}
         onClose={() => setSelectedAlert(null)}
-        title="Clinician Alert Sign-Off"
+        title="Review Alert"
       >
         {selectedAlert && (
           <div className="space-y-4 text-xs">
-            <div className="p-2.5 rounded-lg bg-warm-bg border border-warm-border">
-              <span className="text-[10px] text-slate-subtle uppercase font-semibold block mb-0.5">
-                Alert Reason:
-              </span>
-              <p className="font-semibold text-navy-900">{selectedAlert.reason}</p>
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <span className="text-[10px] uppercase font-bold text-slate-400">Alert Reason</span>
+              <p className="text-xs font-semibold text-navy-900 mt-0.5">{selectedAlert.reason}</p>
             </div>
 
             <div>
-              <label className="text-xs font-bold text-navy-900 uppercase tracking-wider block mb-1">
-                Action Taken
+              <label className="block text-[11px] font-semibold text-navy-900 mb-1">
+                Clinical Action Taken
               </label>
               <select
                 value={actionChoice}
                 onChange={(e) => setActionChoice(e.target.value)}
-                className="w-full text-xs p-2.5 rounded-lg border border-warm-border bg-white text-navy-900"
+                className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white"
               >
                 <option value="Contacted Patient — Reviewed Symptoms">
                   Contacted Patient — Reviewed Symptoms
                 </option>
-                <option value="Telehealth Consultation Scheduled">
-                  Telehealth Consultation Scheduled
+                <option value="Adjusted Exercise Repetition Target">
+                  Adjusted Exercise Repetition Target
                 </option>
-                <option value="Protocol Adjusted">
-                  Protocol Adjusted
+                <option value="Scheduled Follow-up Clinic Consultation">
+                  Scheduled Follow-up Clinic Consultation
                 </option>
-                <option value="Cleared for Continued Protocol">
-                  Cleared for Continued Protocol
+                <option value="Clinically Assessed — Routine Fluctuation">
+                  Clinically Assessed — Routine Fluctuation
                 </option>
               </select>
             </div>
 
             <div>
-              <label className="text-xs font-bold text-navy-900 uppercase tracking-wider block mb-1">
-                Clinical Audit Notes
+              <label className="block text-[11px] font-semibold text-navy-900 mb-1">
+                Review Notes (Optional)
               </label>
               <textarea
-                rows={3}
+                rows={2}
                 value={actionNotes}
                 onChange={(e) => setActionNotes(e.target.value)}
-                placeholder="Document clinical rationale or instructions given to patient..."
-                className="w-full text-xs p-2.5 rounded-lg border border-warm-border bg-white text-navy-900 resize-none"
+                placeholder="Enter clinical review notes..."
+                className="w-full text-xs p-2 rounded-lg border border-slate-200 bg-white"
               />
             </div>
 
-            <div className="pt-2 flex gap-2">
-              <Button variant="outline" fullWidth onClick={() => setSelectedAlert(null)}>
+            <div className="pt-2 border-t border-slate-100 flex justify-end gap-2">
+              <Button size="sm" variant="outline" onClick={() => setSelectedAlert(null)}>
                 Cancel
               </Button>
               <Button
+                size="sm"
                 variant="primary"
-                fullWidth
-                isLoading={isSubmittingAction}
+                disabled={isSubmittingAction}
                 onClick={handleReviewAction}
+                icon={<CheckCircle2 className="w-3.5 h-3.5" />}
               >
-                Sign Off Alert
+                Sign off review
               </Button>
             </div>
           </div>
@@ -832,3 +712,5 @@ export const ClinicianPatientDetail: React.FC = () => {
     </div>
   );
 };
+
+export default ClinicianPatientDetail;

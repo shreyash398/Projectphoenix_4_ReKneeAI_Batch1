@@ -13,6 +13,7 @@ import { DailyCheckin } from './pages/DailyCheckin';
 import { KnowledgeAssistant } from './pages/KnowledgeAssistant';
 import { ProgressHistory } from './pages/ProgressHistory';
 import { ClinicianDashboard } from './pages/ClinicianDashboard';
+import { ClinicianPatients } from './pages/ClinicianPatients';
 import { ClinicianPatientDetail } from './pages/ClinicianPatientDetail';
 import { ClinicianAlerts } from './pages/ClinicianAlerts';
 import { PatientVerifiedReports } from './pages/PatientVerifiedReports';
@@ -93,10 +94,18 @@ export const App: React.FC = () => {
                   }
                 />
                 <Route
-                  path="/clinician/patients"
+                  path="/clinician/overview"
                   element={
                     <ProtectedRoute allowedRole="clinician">
                       <ClinicianDashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/clinician/patients"
+                  element={
+                    <ProtectedRoute allowedRole="clinician">
+                      <ClinicianPatients />
                     </ProtectedRoute>
                   }
                 />
