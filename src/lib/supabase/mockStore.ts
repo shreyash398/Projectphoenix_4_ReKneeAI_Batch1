@@ -54,14 +54,14 @@ interface StoreData {
 const DEMO_PROFILES: Profile[] = [
   {
     id: DEMO_PATIENT_ID,
-    full_name: 'Eleanor Vance (Demo Patient - TKA Day 14)',
+    full_name: 'Eleanor Vance',
     role: 'patient',
     created_at: daysAgo(14),
     updated_at: new Date().toISOString(),
   },
   {
     id: DEMO_CLINICIAN_ID,
-    full_name: 'Dr. Marcus Patel, DPT (Demo Clinician)',
+    full_name: 'Dr. Marcus Patel, DPT',
     role: 'clinician',
     created_at: daysAgo(30),
     updated_at: new Date().toISOString(),

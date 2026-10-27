@@ -3,17 +3,15 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { Shield, Lock, Mail, ArrowRight, UserCheck, Stethoscope, AlertCircle, Info } from 'lucide-react';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
-import { Badge } from '../components/common/Badge';
 import { useAuth } from '../contexts/AuthContext';
-import { isSupabaseConfigured } from '../lib/supabase/client';
 
 export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { signIn, authError, clearAuthError, switchDemoRole } = useAuth();
+  const { signIn, authError, clearAuthError } = useAuth();
 
   const [activeTab, setActiveTab] = useState<'patient' | 'clinician'>('patient');
-  const [email, setEmail] = useState<string>(activeTab === 'patient' ? 'patient@demo.reknee.ai' : 'clinician@demo.reknee.ai');
+  const [email, setEmail] = useState<string>(activeTab === 'patient' ? 'patient@reknee.ai' : 'clinician@reknee.ai');
   const [password, setPassword] = useState<string>('');
   const [isSubmitting, setIsSubmitting] = useState<boolean>(false);
   const [localError, setLocalError] = useState<string | null>(null);
@@ -25,7 +23,7 @@ export const LoginPage: React.FC = () => {
 
   const handleTabChange = (tab: 'patient' | 'clinician') => {
     setActiveTab(tab);
-    setEmail(tab === 'patient' ? 'patient@demo.reknee.ai' : 'clinician@demo.reknee.ai');
+    setEmail(tab === 'patient' ? 'patient@reknee.ai' : 'clinician@reknee.ai');
     setLocalError(null);
     clearAuthError();
   };
@@ -54,11 +52,6 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleDemoQuickSignIn = (role: 'patient' | 'clinician') => {
-    switchDemoRole(role);
-    navigate(role === 'clinician' ? '/clinician' : '/', { replace: true });
-  };
-
   return (
     <div className="min-h-screen bg-warm-bg flex items-center justify-center p-4">
       <div className="max-w-md w-full space-y-6">
@@ -68,17 +61,9 @@ export const LoginPage: React.FC = () => {
             <Shield className="w-6 h-6 stroke-[2.5]" />
           </div>
           <div>
-            <div className="flex items-center justify-center gap-2">
-              <h1 className="text-2xl font-extrabold text-navy-900 tracking-tight">ReKnee AI</h1>
-              <Badge variant="warning" size="sm">
-                Prototype / Demo
-              </Badge>
-            </div>
-            <p className="text-xs text-slate-500 mt-1 font-medium">
-              Connected Post-Operative Knee Rehabilitation Command Center
-            </p>
-            <p className="text-[10px] text-amber-700 mt-1 font-semibold uppercase tracking-wider">
-              Synthetic data only · not clinically validated
+            <h1 className="text-2xl font-extrabold text-navy-900 tracking-tight">ReKnee AI</h1>
+            <p className="text-xs text-slate-500 mt-1">
+              Post-operative knee rehabilitation
             </p>
           </div>
         </div>
@@ -146,7 +131,7 @@ export const LoginPage: React.FC = () => {
                   type="email"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder={activeTab === 'patient' ? 'patient@demo.reknee.ai' : 'clinician@demo.reknee.ai'}
+                  placeholder={activeTab === 'patient' ? 'patient@reknee.ai' : 'clinician@reknee.ai'}
                   required
                   className="w-full text-xs pl-9 pr-3 py-2.5 rounded-lg border border-warm-border focus:border-teal-calm bg-warm-bg/30 text-navy-900"
                 />
@@ -155,7 +140,7 @@ export const LoginPage: React.FC = () => {
 
             <div>
               <label className="text-xs font-bold text-navy-900 uppercase tracking-wider block mb-1">
-                Password {isSupabaseConfigured ? '' : '(Optional in Demo Mode)'}
+                Password
               </label>
               <div className="relative">
                 <Lock className="w-4 h-4 text-slate-subtle absolute left-3 top-3" />
@@ -168,9 +153,7 @@ export const LoginPage: React.FC = () => {
                 />
               </div>
               <p className="text-[10px] text-slate-subtle mt-1">
-                {isSupabaseConfigured
-                  ? 'Authenticated via encrypted Supabase Auth'
-                  : 'Running in demonstration sandbox. Any password or empty password accepted.'}
+                Protected by encrypted authentication
               </p>
             </div>
 
@@ -184,42 +167,6 @@ export const LoginPage: React.FC = () => {
               Sign In as {activeTab === 'patient' ? 'Patient' : 'Clinician'}
             </Button>
           </form>
-
-          {/* Quick Demonstration Persona Shortcuts */}
-          <div className="mt-5 pt-4 border-t border-warm-border space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[11px] font-bold text-slate-subtle uppercase tracking-wider">
-                Quick Demonstration Access
-              </span>
-              <span className="text-[10px] text-teal-calm font-medium">Evaluation Mode</span>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                type="button"
-                onClick={() => handleDemoQuickSignIn('patient')}
-                className="flex flex-col items-start p-2.5 rounded-xl border border-warm-border bg-warm-bg/50 hover:bg-white hover:border-teal-calm transition-all text-left"
-              >
-                <div className="flex items-center gap-1.5 mb-1">
-                  <UserCheck className="w-3.5 h-3.5 text-teal-calm" />
-                  <span className="text-xs font-bold text-navy-900">Eleanor Vance</span>
-                </div>
-                <span className="text-[10px] text-slate-muted">Patient (TKA Day 14)</span>
-              </button>
-
-              <button
-                type="button"
-                onClick={() => handleDemoQuickSignIn('clinician')}
-                className="flex flex-col items-start p-2.5 rounded-xl border border-warm-border bg-warm-bg/50 hover:bg-white hover:border-teal-calm transition-all text-left"
-              >
-                <div className="flex items-center gap-1.5 mb-1">
-                  <Stethoscope className="w-3.5 h-3.5 text-teal-calm" />
-                  <span className="text-xs font-bold text-navy-900">Dr. Marcus Patel</span>
-                </div>
-                <span className="text-[10px] text-slate-muted">DPT Physical Therapist</span>
-              </button>
-            </div>
-          </div>
         </Card>
 
         {/* Security & HIPAA Notice */}

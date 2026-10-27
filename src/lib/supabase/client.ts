@@ -17,6 +17,6 @@ export const supabase: SupabaseClient | null = isSupabaseConfigured
 
 if (!isSupabaseConfigured) {
   console.info(
-    'ReKnee AI: Running in resilient synthetic demo mode (Supabase URL/Key not configured or placeholder).'
+    'ReKnee AI: Running in offline local repository mode (Supabase URL/Key not configured or placeholder).'
   );
 }
