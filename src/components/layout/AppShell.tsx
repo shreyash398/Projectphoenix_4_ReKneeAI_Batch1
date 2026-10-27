@@ -3,7 +3,6 @@ import { Outlet } from 'react-router-dom';
 import { PageHeader } from './PageHeader';
 import { BottomNavigation } from './BottomNavigation';
 import { Sidebar } from './Sidebar';
-import { DemoBanner } from '../common/DemoBanner';
 import { useAuth } from '../../contexts/AuthContext';
 import { repository } from '../../lib/supabase/repository';
 
@@ -31,8 +30,6 @@ export const AppShell: React.FC = () => {
 
       {/* Main Content Area */}
       <div className="flex-1 lg:pl-64 flex flex-col min-w-0 min-h-screen">
-        <DemoBanner />
-
         {/* Mobile Page Header */}
         <div className="lg:hidden">
           <PageHeader />

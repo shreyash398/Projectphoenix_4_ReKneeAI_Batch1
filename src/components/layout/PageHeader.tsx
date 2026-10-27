@@ -1,26 +1,11 @@
 import React from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
-import { Shield, UserCheck, Stethoscope, LogOut } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Shield, LogOut } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 
 export const PageHeader: React.FC = () => {
-  const { profile, role, switchDemoRole, signOut } = useAuth();
+  const { profile, role, signOut } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-
-  const toggleRole = () => {
-    const nextRole = role === 'patient' ? 'clinician' : 'patient';
-    switchDemoRole(nextRole);
-    if (nextRole === 'clinician') {
-      if (!location.pathname.startsWith('/clinician')) {
-        navigate('/clinician');
-      }
-    } else {
-      if (location.pathname.startsWith('/clinician')) {
-        navigate('/');
-      }
-    }
-  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -38,11 +23,7 @@ export const PageHeader: React.FC = () => {
           <div>
             <div className="flex items-center gap-2">
               <span className="font-bold text-navy-900 text-sm tracking-tight">ReKnee AI</span>
-              <span className="text-[10px] uppercase font-semibold tracking-wider px-1.5 py-0.5 rounded bg-amber-50 text-amber-700 border border-amber-200">
-                Prototype
-              </span>
             </div>
-            <p className="text-[11px] text-slate-muted hidden sm:block">Connected Post-Op Recovery</p>
           </div>
         </div>
 
@@ -54,28 +35,10 @@ export const PageHeader: React.FC = () => {
                 {profile.full_name.split(' (')[0]}
               </p>
               <p className="text-[10px] text-slate-subtle capitalize">
-                Role: <span className="font-medium text-teal-calm">{role}</span>
+                Portal: <span className="font-medium text-teal-calm">{role === 'clinician' ? 'Clinician' : 'Patient'}</span>
               </p>
             </div>
           )}
-
-          <button
-            onClick={toggleRole}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-medium bg-warm-subtle text-navy-900 border border-warm-border hover:bg-white hover:border-teal-calm transition-colors shadow-soft"
-            title="Switch demo persona for testing"
-          >
-            {role === 'patient' ? (
-              <>
-                <Stethoscope className="w-3.5 h-3.5 text-teal-calm" />
-                <span>Clinician View</span>
-              </>
-            ) : (
-              <>
-                <UserCheck className="w-3.5 h-3.5 text-teal-calm" />
-                <span>Patient View</span>
-              </>
-            )}
-          </button>
 
           <button
             onClick={handleSignOut}

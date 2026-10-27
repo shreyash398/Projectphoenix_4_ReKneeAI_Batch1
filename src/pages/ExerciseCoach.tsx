@@ -8,13 +8,11 @@ import {
   Camera,
   Play,
   Pause,
-  Square,
   RefreshCw,
   CheckCircle2,
   AlertTriangle,
   ArrowLeft,
   VideoOff,
-  Sparkles,
   ShieldCheck,
   Info,
   ChevronRight,
@@ -70,7 +68,6 @@ export const ExerciseCoach: React.FC = () => {
   const [elapsedSeconds, setElapsedSeconds] = useState<number>(0);
   const [repConfig, setRepConfig] = useState<RepCounterConfig>(DEFAULT_REP_CONFIG);
   const [repState, setRepState] = useState<RepCounterState>(createInitialRepCounterState());
-  const [trackedSide, setTrackedSide] = useState<'left' | 'right' | 'none'>('none');
 
   // Summary & Persistence State
   const [showSummaryModal, setShowSummaryModal] = useState<boolean>(false);
@@ -165,7 +162,7 @@ export const ExerciseCoach: React.FC = () => {
     if (typeof navigator === 'undefined' || !navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       setCameraStatus('camera_unavailable');
       setCameraErrorMessage(
-        'Camera access requires a secure connection (HTTPS) or is not supported by your browser. You can use guided demonstration mode.'
+        'Camera access requires a secure connection (HTTPS) or is not supported by your browser. You can use guided exercise mode.'
       );
       setModelStatus('idle');
       return;
@@ -190,7 +187,7 @@ export const ExerciseCoach: React.FC = () => {
         poseLandmarker = await getPoseLandmarker();
         setModelStatus('ready');
       } catch (modelErr) {
-        console.warn('MediaPipe model load failed, allowing camera with demo fallback:', modelErr);
+        console.warn('MediaPipe model load failed, allowing camera with guided fallback:', modelErr);
         setModelStatus('failed');
       }
 
@@ -220,7 +217,7 @@ export const ExerciseCoach: React.FC = () => {
       ) {
         setCameraStatus('camera_unavailable');
         setCameraErrorMessage(
-          'No camera was found or the camera is already in use by another application. You can use our guided demonstration mode instead.'
+          'No camera was found or the camera is already in use by another application. You can use guided exercise mode instead.'
         );
       } else {
         setCameraStatus('camera_unavailable');
@@ -284,7 +281,6 @@ export const ExerciseCoach: React.FC = () => {
 
             if (legLandmarks) {
               setDetectionQuality('good');
-              setTrackedSide(legLandmarks.side);
 
               // Calculate biomechanical knee angle
               const calculatedAngle = calculateJointAngle(
@@ -319,12 +315,10 @@ export const ExerciseCoach: React.FC = () => {
               }
             } else {
               setDetectionQuality('low_confidence');
-              setTrackedSide('none');
               ctx.clearRect(0, 0, canvas.width, canvas.height);
             }
           } else {
             setDetectionQuality('no_pose');
-            setTrackedSide('none');
             ctx.clearRect(0, 0, canvas.width, canvas.height);
           }
         } catch (visionErr) {
@@ -392,7 +386,6 @@ export const ExerciseCoach: React.FC = () => {
         const ctx = canvas.getContext('2d');
         if (ctx) {
           setDetectionQuality('good');
-          setTrackedSide('right');
           runSimulatedFrame(ctx, canvas.width, canvas.height);
         }
       }
@@ -487,13 +480,9 @@ export const ExerciseCoach: React.FC = () => {
     }
   };
 
-  const formattedDuration = `${Math.floor(elapsedSeconds / 60)}:${(elapsedSeconds % 60)
-    .toString()
-    .padStart(2, '0')}`;
-
   return (
     <div className="space-y-6 max-w-4xl mx-auto pb-12">
-      {/* Top Header & Breadcrumb */}
+      {/* Top Header */}
       <div className="flex items-center justify-between pb-3 border-b border-slate-200/60">
         <button
           onClick={() => {
@@ -503,83 +492,18 @@ export const ExerciseCoach: React.FC = () => {
           className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-navy-900 transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Back to Recovery Home</span>
+          <span>Back to Home</span>
         </button>
-
-        <Badge
-          variant={isManualDemoMode ? 'warning' : 'teal'}
-          icon={<Sparkles className="w-3.5 h-3.5" />}
-        >
-          {isManualDemoMode ? 'Guided Simulation Mode' : 'Smart Pose Landmarker'}
-        </Badge>
       </div>
 
       <div>
-        <p className="text-xs uppercase font-bold tracking-wider text-teal-calm">
-          Assigned Physical Therapy
-        </p>
-        <h1 className="text-2xl font-extrabold text-navy-900 tracking-tight mt-1">
-          Today's Exercise
+        <h1 className="text-2xl font-bold text-navy-900 tracking-tight">
+          {exercise?.name || 'Seated Knee Extension'}
         </h1>
-        <p className="text-xs sm:text-sm text-slate-500 mt-1">
+        <p className="text-sm text-slate-500 mt-1">
           {exercise?.instructions ||
-            'Sit upright in a sturdy chair with feet flat on the floor. Gently bend and straighten your operative leg through a comfortable range of motion.'}
+            'Sit upright in a chair with feet flat. Straighten your leg smoothly and lower it back down.'}
         </p>
-      </div>
-
-      {/* 4 Compact Information Cards around the exercise area */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3.5">
-        <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-soft">
-          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
-            Exercise
-          </span>
-          <p className="text-xs font-bold text-navy-900 mt-1 truncate">
-            {exercise?.name || 'Seated Knee Extension'}
-          </p>
-          <span className="text-[10px] text-teal-calm font-medium">Post-Op Protocol</span>
-        </div>
-
-        <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-soft">
-          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
-            Progress
-          </span>
-          <p className="text-base font-extrabold text-navy-900 mt-0.5 tabular-nums">
-            {repState.repetitions} / {repConfig.targetReps}{' '}
-            <span className="text-xs font-normal text-slate-500">reps</span>
-          </p>
-          <span className="text-[10px] text-slate-400 font-medium">
-            {repState.repetitions >= repConfig.targetReps ? 'Target Reached ✓' : 'In Progress'}
-          </span>
-        </div>
-
-        <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-soft">
-          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
-            Duration
-          </span>
-          <p className="text-base font-extrabold text-navy-900 mt-0.5 font-mono tabular-nums">
-            {formattedDuration}
-          </p>
-          <span className="text-[10px] text-slate-400 font-medium">Active Session</span>
-        </div>
-
-        <div className="p-3.5 rounded-2xl bg-white border border-slate-200/80 shadow-soft">
-          <span className="text-[10px] font-semibold text-slate-400 uppercase tracking-wider block">
-            Status
-          </span>
-          <div className="flex items-center gap-1.5 mt-1">
-            <span
-              className={`w-2 h-2 rounded-full ${
-                cameraStatus === 'active' ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'
-              }`}
-            />
-            <p className="text-xs font-bold text-navy-900">
-              {cameraStatus === 'active' ? 'Tracking Active' : 'Camera Ready'}
-            </p>
-          </div>
-          <span className="text-[10px] text-slate-400 font-medium">
-            Side: {trackedSide !== 'none' ? trackedSide : 'Auto'}
-          </span>
-        </div>
       </div>
 
       {/* Camera Viewport & Overlays */}
@@ -612,19 +536,19 @@ export const ExerciseCoach: React.FC = () => {
               </div>
 
               <div>
-                <h3 className="text-sm sm:text-base font-semibold text-white">
-                  Camera-Assisted Exercise Tracking
+                <h3 className="text-base font-semibold text-white">
+                  Exercise camera
                 </h3>
-                <p className="text-xs text-slate-muted mt-1 leading-relaxed">
-                  Position your device so your side profile and chair are in full view. We’ll measure your knee movement and count repetitions automatically.
+                <p className="text-xs text-slate-300 mt-1 leading-relaxed">
+                  Position your device so your leg and chair are in view.
                 </p>
               </div>
 
-              {/* Explicit Privacy Notice */}
+              {/* Privacy Notice */}
               <div className="bg-navy-900/90 border border-navy-700 rounded-xl p-2.5 text-left flex items-start gap-2">
                 <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
                 <p className="text-[11px] text-slate-300 leading-tight">
-                  <strong className="text-white">Strict On-Device Privacy:</strong> MediaPipe pose processing runs 100% locally in your browser. No video frames are ever recorded, saved, or uploaded.
+                  Camera stream runs privately on your device. No video is recorded or stored.
                 </p>
               </div>
 
@@ -635,7 +559,7 @@ export const ExerciseCoach: React.FC = () => {
                   onClick={handleStartCamera}
                   icon={<Camera className="w-4 h-4" />}
                 >
-                  Enable Camera & Start
+                  Start exercise
                 </Button>
                 <Button
                   fullWidth
@@ -644,7 +568,7 @@ export const ExerciseCoach: React.FC = () => {
                   onClick={handleStartDemoMode}
                   className="text-slate-300 border-navy-700 hover:bg-navy-800"
                 >
-                  Try Demonstration Mode Without Camera
+                  Practice without camera
                 </Button>
               </div>
             </div>
@@ -661,7 +585,9 @@ export const ExerciseCoach: React.FC = () => {
                     : 'Loading MediaPipe Pose Model...'}
                 </h3>
                 <p className="text-xs text-slate-muted max-w-xs mx-auto mt-1">
-                  Please accept the camera permission prompt in your browser. Preparing on-device computer vision.
+                  {cameraStatus === 'requesting_permission'
+                    ? 'Please accept the camera permission in your browser.'
+                    : 'Preparing on-device pose detection...'}
                 </p>
               </div>
             </div>
@@ -694,7 +620,7 @@ export const ExerciseCoach: React.FC = () => {
                   onClick={handleStartDemoMode}
                   className="text-slate-300 border-navy-700"
                 >
-                  Use Guided Demo Mode
+                  Use Guided Motion Mode
                 </Button>
               </div>
             </div>
@@ -718,7 +644,7 @@ export const ExerciseCoach: React.FC = () => {
                   variant="primary"
                   onClick={handleStartDemoMode}
                 >
-                  Continue in Demo Mode
+                  Continue in Guided Mode
                 </Button>
                 <Button
                   size="sm"
@@ -737,7 +663,7 @@ export const ExerciseCoach: React.FC = () => {
             <div className="absolute top-3 left-3 right-3 bg-amber-900/80 border border-amber-600 rounded-lg p-2.5 text-xs text-amber-200 flex items-center justify-between z-20">
               <div className="flex items-center gap-2">
                 <AlertTriangle className="w-4 h-4 text-amber-300 shrink-0" />
-                <span>MediaPipe model could not load. Running in assisted demo mode.</span>
+                <span>MediaPipe pose tracking unavailable. Running in guided motion mode.</span>
               </div>
               <Button size="sm" variant="outline" onClick={handleStartDemoMode} className="text-xs py-0.5 px-2 h-auto text-amber-100 border-amber-400">
                 Acknowledge
@@ -824,7 +750,7 @@ export const ExerciseCoach: React.FC = () => {
                   icon={<Play className="w-5 h-5 fill-current" />}
                   className="flex-1"
                 >
-                  Start Recording Session
+                  Start exercise
                 </Button>
                 <Button
                   size="lg"
@@ -836,7 +762,7 @@ export const ExerciseCoach: React.FC = () => {
                   }}
                   className="text-slate-300 border-navy-700 hover:bg-navy-800"
                 >
-                  Exit Camera
+                  Exit camera
                 </Button>
               </div>
             ) : (
@@ -862,16 +788,6 @@ export const ExerciseCoach: React.FC = () => {
                   </Button>
                 )}
 
-                {/* Stop Early Button */}
-                <Button
-                  variant="outline"
-                  className="flex-1 text-slate-300 border-navy-700 hover:bg-navy-800"
-                  onClick={() => handleStopWorkout('stopped_early')}
-                  icon={<Square className="w-4 h-4" />}
-                >
-                  Stop Early
-                </Button>
-
                 {/* Finish Session Button */}
                 <Button
                   variant="primary"
@@ -879,7 +795,7 @@ export const ExerciseCoach: React.FC = () => {
                   onClick={() => handleStopWorkout('completed')}
                   icon={<CheckCircle2 className="w-4 h-4" />}
                 >
-                  Finish
+                  Finish session
                 </Button>
               </>
             )}
@@ -887,12 +803,11 @@ export const ExerciseCoach: React.FC = () => {
         )}
       </Card>
 
-      {/* Non-Diagnostic Disclaimer (PRD Requirement) */}
-      <div className="p-3.5 bg-warm-subtle rounded-xl border border-warm-border text-xs text-slate-muted flex items-start gap-2.5">
+      {/* Safety Notice */}
+      <div className="p-3 bg-warm-subtle rounded-xl border border-warm-border text-xs text-slate-muted flex items-start gap-2.5">
         <Info className="w-4 h-4 text-teal-calm shrink-0 mt-0.5" />
         <p className="leading-relaxed">
-          <strong className="text-navy-900 font-semibold">Prototype Exercise Assistance:</strong>{' '}
-          ReKnee AI pose tracking is an exploratory exercise companion designed for guidance and routine documentation. It is not a medical diagnostic tool and does not provide clinically certified joint range-of-motion measurements. Stop exercising immediately if you feel acute or sharp pain.
+          Stop exercising immediately if you feel sharp pain. This exercise coach does not provide medical diagnosis.
         </p>
       </div>
 
@@ -918,9 +833,9 @@ export const ExerciseCoach: React.FC = () => {
             <div className="p-3 bg-emerald-50 border border-emerald-200 rounded-xl flex items-start gap-2.5 text-xs text-emerald-900">
               <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
               <div>
-                <strong className="block font-semibold">Session Recorded Successfully</strong>
+                <strong className="block font-semibold">Session recorded</strong>
                 <span>
-                  Your mobility practice data has been saved and shared with your physical therapy care team.
+                  Your exercise data has been saved and shared with your care team.
                 </span>
               </div>
             </div>
@@ -930,7 +845,7 @@ export const ExerciseCoach: React.FC = () => {
           {isSaving && (
             <div className="p-3 bg-warm-subtle border border-warm-border rounded-xl flex items-center gap-2 text-xs text-slate-muted">
               <RefreshCw className="w-4 h-4 text-teal-calm animate-spin shrink-0" />
-              <span>Saving session record to your chart...</span>
+              <span>Saving session...</span>
             </div>
           )}
 

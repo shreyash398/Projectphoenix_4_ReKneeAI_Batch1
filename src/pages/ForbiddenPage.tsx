@@ -41,8 +41,8 @@ export const ForbiddenPage: React.FC = () => {
         </div>
 
         <div className="p-3 bg-warm-subtle rounded-xl border border-warm-border text-left text-xs text-slate-muted">
-          <span className="font-semibold text-navy-900 block mb-0.5">Clinical Authorization Notice:</span>
-          Under healthcare access controls, clinician oversight routes are strictly isolated from patient views, and patient exercise logging is restricted to verified recovery plan holders.
+          <span className="font-semibold text-navy-900 block mb-0.5">Why am I seeing this?</span>
+          Patient and clinician portals are separated for privacy. Sign in with the correct account type to access this section.
         </div>
 
         <div className="pt-2 flex flex-col gap-2">

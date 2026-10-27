@@ -31,3 +31,15 @@ dist-ssr
 *.sw?
 .DS_Store
 Thumbs.db
+
+# Agent / GSD / AI tooling
+.agent/
+.agents/
+.gemini/
+.gsd/
+adapters/
+scripts/
+GSD-STYLE.md
+PROJECT_RULES.md
+VERSION
+model_capabilities.yaml

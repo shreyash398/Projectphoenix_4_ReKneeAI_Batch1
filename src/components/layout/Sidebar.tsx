@@ -1,19 +1,16 @@
 import React from 'react';
-import { NavLink, useNavigate, useLocation } from 'react-router-dom';
+import { NavLink, useNavigate } from 'react-router-dom';
 import {
   Home,
   Activity,
   ClipboardCheck,
   MessageSquareHeart,
   TrendingUp,
-  FileCheck2,
   Users,
   BellRing,
   LayoutDashboard,
   ShieldCheck,
   Shield,
-  Stethoscope,
-  UserCheck,
   LogOut,
 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
@@ -25,23 +22,8 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ role, alertCount = 0 }) => {
-  const { profile, switchDemoRole, signOut } = useAuth();
+  const { profile, signOut } = useAuth();
   const navigate = useNavigate();
-  const location = useLocation();
-
-  const toggleRole = () => {
-    const nextRole = role === 'patient' ? 'clinician' : 'patient';
-    switchDemoRole(nextRole);
-    if (nextRole === 'clinician') {
-      if (!location.pathname.startsWith('/clinician')) {
-        navigate('/clinician');
-      }
-    } else {
-      if (location.pathname.startsWith('/clinician')) {
-        navigate('/');
-      }
-    }
-  };
 
   const handleSignOut = async () => {
     await signOut();
@@ -90,57 +72,19 @@ export const Sidebar: React.FC<SidebarProps> = ({ role, alertCount = 0 }) => {
             <div className="flex items-center gap-1.5">
               <span className="font-bold text-navy-900 text-base tracking-tight">ReKnee AI</span>
             </div>
-            <p className="text-[11px] text-slate-500 font-medium">Post-Op Command Center</p>
           </div>
         </div>
-        <span className="text-[9px] uppercase font-bold tracking-wider px-1.5 py-0.5 rounded-md bg-amber-50 text-amber-800 border border-amber-200">
-          Demo
-        </span>
       </div>
 
       {/* Main Navigation */}
-      <div className="flex-1 px-3 py-5 space-y-6 overflow-y-auto">
-        <div className="space-y-1">
-          <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-            {role === 'clinician' ? 'Clinical Management' : 'Recovery Protocol'}
-          </p>
-          {navItems.map((item) => {
-            const Icon = item.icon;
-            return (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                end={item.end}
-                className={({ isActive }) =>
-                  `flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
-                    isActive
-                      ? 'bg-teal-light text-teal-hover font-semibold shadow-soft border border-teal-border/60'
-                      : 'text-slate-600 hover:text-navy-900 hover:bg-slate-50'
-                  }`
-                }
-              >
-                <div className="flex items-center gap-3">
-                  <Icon className="w-4 h-4 shrink-0" />
-                  <span>{item.label}</span>
-                </div>
-                {item.badge !== undefined && (
-                  <span className="px-2 py-0.5 text-[10px] font-bold bg-status-error text-white rounded-full">
-                    {item.badge}
-                  </span>
-                )}
-              </NavLink>
-            );
-          })}
-        </div>
-
-        {/* Secondary Navigation for Patients */}
-        {role === 'patient' && (
-          <div className="pt-2 border-t border-slate-100 space-y-1">
-            <p className="px-3 text-[10px] font-bold uppercase tracking-wider text-slate-400 mb-2">
-              Official Records
-            </p>
+      <div className="flex-1 px-3 py-5 space-y-1 overflow-y-auto">
+        {navItems.map((item) => {
+          const Icon = item.icon;
+          return (
             <NavLink
-              to="/reports"
+              key={item.path}
+              to={item.path}
+              end={item.end}
               className={({ isActive }) =>
                 `flex items-center justify-between px-3.5 py-2.5 rounded-xl text-sm font-medium transition-all duration-150 ${
                   isActive
@@ -150,15 +94,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ role, alertCount = 0 }) => {
               }
             >
               <div className="flex items-center gap-3">
-                <FileCheck2 className="w-4 h-4 shrink-0" />
-                <span>Verified Reports</span>
+                <Icon className="w-4 h-4 shrink-0" />
+                <span>{item.label}</span>
               </div>
-              <span className="text-[10px] uppercase font-bold text-teal-calm bg-teal-50 px-1.5 py-0.5 rounded border border-teal-200">
-                PDF
-              </span>
+              {item.badge !== undefined && (
+                <span className="px-2 py-0.5 text-[10px] font-bold bg-status-error text-white rounded-full">
+                  {item.badge}
+                </span>
+              )}
             </NavLink>
-          </div>
-        )}
+          );
+        })}
       </div>
 
       {/* User Persona & Role Controls Footer */}
@@ -176,7 +122,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ role, alertCount = 0 }) => {
                 </p>
                 <p className="text-[10px] text-slate-500 capitalize flex items-center gap-1 font-medium">
                   <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                  {role} Mode
+                  {role === 'clinician' ? 'Clinician' : 'Patient'}
                 </p>
               </div>
             </div>
@@ -191,24 +137,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ role, alertCount = 0 }) => {
             </button>
           </div>
         )}
-
-        {/* Demo Persona Switcher Button */}
-        <button
-          onClick={toggleRole}
-          className="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-xl text-xs font-semibold bg-white text-navy-900 border border-slate-200 hover:border-teal-calm hover:bg-teal-50/50 transition-all shadow-soft"
-        >
-          {role === 'patient' ? (
-            <>
-              <Stethoscope className="w-3.5 h-3.5 text-teal-calm" />
-              <span>Switch to Clinician View</span>
-            </>
-          ) : (
-            <>
-              <UserCheck className="w-3.5 h-3.5 text-teal-calm" />
-              <span>Switch to Patient View</span>
-            </>
-          )}
-        </button>
       </div>
     </aside>
   );

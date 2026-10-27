@@ -39,7 +39,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ role, alertC
             to="/clinician/patients"
             className={({ isActive }) =>
               `flex flex-col items-center justify-center min-h-[44px] min-w-[44px] py-1 px-3 rounded-xl text-[11px] font-medium transition-all ${
-                isActive ? 'text-teal-calm font-semibold' : 'text-slate-muted hover:text-navy-900'
+                isActive ? 'text-teal-hover font-semibold bg-teal-light' : 'text-slate-500 hover:text-navy-900'
               }`
             }
           >
@@ -51,7 +51,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ role, alertC
             to="/clinician/alerts"
             className={({ isActive }) =>
               `relative flex flex-col items-center justify-center min-h-[44px] min-w-[44px] py-1 px-3 rounded-xl text-[11px] font-medium transition-all ${
-                isActive ? 'text-teal-calm font-semibold' : 'text-slate-muted hover:text-navy-900'
+                isActive ? 'text-teal-hover font-semibold bg-teal-light' : 'text-slate-500 hover:text-navy-900'
               }`
             }
           >
@@ -88,7 +88,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ role, alertC
           to="/exercise"
           className={({ isActive }) =>
             `flex flex-col items-center justify-center min-h-[44px] min-w-[44px] py-1 px-2.5 rounded-xl text-[10px] font-medium transition-all ${
-              isActive ? 'text-teal-calm font-semibold' : 'text-slate-muted hover:text-navy-900'
+              isActive ? 'text-teal-hover font-semibold bg-teal-light' : 'text-slate-500 hover:text-navy-900'
             }`
           }
         >
@@ -100,7 +100,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ role, alertC
           to="/check-in"
           className={({ isActive }) =>
             `flex flex-col items-center justify-center min-h-[44px] min-w-[44px] py-1 px-2.5 rounded-xl text-[10px] font-medium transition-all ${
-              isActive ? 'text-teal-calm font-semibold' : 'text-slate-muted hover:text-navy-900'
+              isActive ? 'text-teal-hover font-semibold bg-teal-light' : 'text-slate-500 hover:text-navy-900'
             }`
           }
         >
@@ -112,7 +112,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ role, alertC
           to="/assistant"
           className={({ isActive }) =>
             `flex flex-col items-center justify-center min-h-[44px] min-w-[44px] py-1 px-2.5 rounded-xl text-[10px] font-medium transition-all ${
-              isActive ? 'text-teal-calm font-semibold' : 'text-slate-muted hover:text-navy-900'
+              isActive ? 'text-teal-hover font-semibold bg-teal-light' : 'text-slate-500 hover:text-navy-900'
             }`
           }
         >
@@ -124,7 +124,7 @@ export const BottomNavigation: React.FC<BottomNavigationProps> = ({ role, alertC
           to="/progress"
           className={({ isActive }) =>
             `flex flex-col items-center justify-center min-h-[44px] min-w-[44px] py-1 px-2.5 rounded-xl text-[10px] font-medium transition-all ${
-              isActive ? 'text-teal-calm font-semibold' : 'text-slate-muted hover:text-navy-900'
+              isActive ? 'text-teal-hover font-semibold bg-teal-light' : 'text-slate-500 hover:text-navy-900'
             }`
           }
         >

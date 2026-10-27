@@ -42,7 +42,22 @@ export default {
         }
       },
       fontFamily: {
-        sans: ['Inter', '-apple-system', 'BlinkMacSystemFont', '"Segoe UI"', 'Roboto', 'Helvetica', 'Arial', 'sans-serif'],
+        sans: [
+          '-apple-system',
+          'BlinkMacSystemFont',
+          '"SF Pro Display"',
+          '"SF Pro Text"',
+          '"Helvetica Neue"',
+          'sans-serif',
+        ],
+      },
+      letterSpacing: {
+        tighter: '-0.035em',
+        tight: '-0.02em',
+        normal: '0em',
+        wide: '0.02em',
+        wider: '0.04em',
+        widest: '0.08em',
       },
       borderRadius: {
         '2xl': '1rem',

@@ -58,8 +58,10 @@ export const SessionSummary: React.FC<SessionSummaryProps> = ({
           </div>
           <div>
             <p className="text-[10px] text-slate-subtle uppercase font-semibold">Tracking</p>
-            <p className="text-xs font-semibold text-navy-900 capitalize">
-              {session.measurement_mode.replace('_', ' ')}
+            <p className="text-xs font-semibold text-navy-900">
+              {session.measurement_mode === 'manual_demo'
+                ? 'Guided Motion'
+                : 'Camera Vision'}
             </p>
           </div>
         </div>

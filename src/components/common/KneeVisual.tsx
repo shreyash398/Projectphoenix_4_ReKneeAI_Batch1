@@ -16,9 +16,8 @@ export const KneeVisual: React.FC<KneeVisualProps> = ({
 }) => {
   return (
     <div
-      className={`relative flex flex-col items-center justify-center overflow-hidden rounded-3xl bg-gradient-to-b from-slate-50/80 via-white to-slate-50/50 border border-slate-200/80 p-5 ${
-        compact ? 'h-[300px]' : 'h-[380px] sm:h-[420px]'
-      } ${className}`}
+      className={`relative flex flex-col items-center justify-center overflow-hidden rounded-3xl bg-gradient-to-b from-slate-50/80 via-white to-slate-50/50 border border-slate-200/80 p-5 ${compact ? 'h-[300px]' : 'h-[380px] sm:h-[420px]'
+        } ${className}`}
     >
       {/* Background medical grid & radial glow */}
       <div className="absolute inset-0 bg-[radial-gradient(#0D9488_1px,transparent_1px)] [background-size:20px_20px] opacity-[0.07] pointer-events-none" />
@@ -109,7 +108,7 @@ export const KneeVisual: React.FC<KneeVisualProps> = ({
         {/* TARGET RIGHT KNEE HERO FOCUS AREA */}
         {/* Beacon halo */}
         <circle cx="120" cy="215" r="40" fill="url(#beaconGlow)" />
-        
+
         {/* Outer targeting bracket ring */}
         <circle
           cx="120"

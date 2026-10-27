@@ -3,13 +3,11 @@
 // Demonstrates grounded answers synthesized strictly from approved clinical guidance with explicit source citations
 
 import React, { useState, useEffect, useRef, useCallback } from 'react';
-import { useNavigate, useSearchParams } from 'react-router-dom';
+import { useSearchParams } from 'react-router-dom';
 import {
   Send,
   ShieldCheck,
   AlertCircle,
-  ArrowLeft,
-  HelpCircle,
   AlertTriangle,
   Info,
   RefreshCw,
@@ -17,10 +15,8 @@ import {
   Trash2,
   Clock,
   ExternalLink,
-  BookOpen,
 } from 'lucide-react';
 import { Button } from '../components/common/Button';
-import { Badge } from '../components/common/Badge';
 import { repository } from '../lib/supabase/repository';
 import { useAuth } from '../contexts/AuthContext';
 import { askAssistantQuestion } from '../lib/assistant/assistantClient';
@@ -37,7 +33,6 @@ const SUGGESTED_PROMPTS = [
 ];
 
 export const KnowledgeAssistant: React.FC = () => {
-  const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { profile } = useAuth();
   const activeProfile = profile || repository.getGuaranteedProfile();
@@ -92,13 +87,12 @@ export const KnowledgeAssistant: React.FC = () => {
           });
           setMessages(loadedChat);
         } else {
-          // Welcome message explaining grounded recovery bounds
+          // Welcome message
           setMessages([
             {
               id: 'welcome',
               sender: 'assistant',
-              text:
-                'Hello Eleanor. I am your Recovery Knowledge Assistant. I answer questions strictly from the post-operative recovery guidance approved by your orthopedic surgical and physical therapy care team. How can I support your recovery today?',
+              text: 'How can I help with your recovery today?',
               timestamp: new Date().toISOString(),
               status: 'answered',
             },
@@ -223,38 +217,21 @@ export const KnowledgeAssistant: React.FC = () => {
       {/* Top Header */}
       <div className="flex items-center justify-between shrink-0 pb-3 border-b border-slate-200/60">
         <div>
-          <button
-            onClick={() => navigate('/')}
-            className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-navy-900 transition-colors p-1 rounded-lg mb-1"
-            aria-label="Back to home"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span>Back to Recovery Home</span>
-          </button>
-          <h1 className="text-2xl font-extrabold text-navy-900 tracking-tight">
+          <h1 className="text-2xl font-bold text-navy-900 tracking-tight">
             Recovery Assistant
           </h1>
-          <p className="text-xs sm:text-sm text-slate-500 mt-0.5">
-            Ask about your approved recovery information and post-operative protocol.
-          </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Badge variant="teal" icon={<ShieldCheck className="w-3.5 h-3.5" />}>
-            Approved Clinical Sources
-          </Badge>
-
-          {messages.length > 1 && (
-            <button
-              onClick={handleClearSession}
-              title="Clear current view"
-              className="text-slate-400 hover:text-navy-900 p-2 rounded-xl hover:bg-slate-100 transition-colors text-xs flex items-center gap-1.5 border border-slate-200"
-            >
-              <Trash2 className="w-3.5 h-3.5" />
-              <span className="hidden sm:inline font-medium">Clear</span>
-            </button>
-          )}
-        </div>
+        {messages.length > 1 && (
+          <button
+            onClick={handleClearSession}
+            title="Clear chat"
+            className="text-slate-400 hover:text-navy-900 p-2 rounded-xl hover:bg-slate-100 transition-colors text-xs flex items-center gap-1.5 border border-slate-200"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+            <span className="hidden sm:inline font-medium">Clear</span>
+          </button>
+        )}
       </div>
 
       {/* Inline Error Notice */}
@@ -346,33 +323,27 @@ export const KnowledgeAssistant: React.FC = () => {
                   {/* Body Content */}
                   <p className="whitespace-pre-wrap leading-relaxed">{msg.text}</p>
 
-                  {/* Verifiable Source Citations */}
+                  {/* Approved Source Citations */}
                   {msg.sourceArticles && msg.sourceArticles.length > 0 && (
                     <div className="mt-3 pt-3 border-t border-warm-border/70 text-xs">
-                      <div className="flex items-center gap-1.5 font-medium text-navy-900 mb-2">
-                        <BookOpen className="w-3.5 h-3.5 text-teal-calm" />
-                        <span>Verifiable Clinical Citations:</span>
-                      </div>
-                      <div className="space-y-1.5">
+                      <p className="font-medium text-navy-900 mb-1.5 text-[11px]">
+                        Approved reference:
+                      </p>
+                      <div className="space-y-1">
                         {msg.sourceArticles.map((art) => (
                           <div
                             key={art.id}
-                            className="flex items-start justify-between gap-2 bg-warm-bg/90 p-2.5 rounded-lg border border-warm-border/80"
+                            className="flex items-center justify-between gap-2 bg-warm-bg/90 p-2 rounded-lg border border-warm-border/80 text-xs"
                           >
-                            <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-navy-900 truncate">
-                                {art.title}
-                              </p>
-                              <p className="text-[11px] text-slate-subtle mt-0.5">
-                                {art.source_label} (v{art.version})
-                              </p>
-                            </div>
+                            <span className="font-medium text-navy-900 truncate">
+                              {art.title}
+                            </span>
                             {art.source_url && (
                               <a
                                 href={art.source_url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="text-teal-calm hover:text-teal-hover p-1 rounded transition-colors"
+                                className="text-teal-calm hover:text-teal-hover p-1 rounded transition-colors shrink-0"
                                 aria-label={`Read reference for ${art.title}`}
                               >
                                 <ExternalLink className="w-3.5 h-3.5" />
@@ -388,7 +359,7 @@ export const KnowledgeAssistant: React.FC = () => {
 
               {/* Timestamp label below user bubble */}
               {msg.sender === 'user' && (
-                <span className="text-[10px] text-slate-subtle mt-1 px-1">
+                <span className="text-[10px] text-slate-400 mt-1 px-1">
                   {new Date(msg.timestamp).toLocaleTimeString([], {
                     hour: '2-digit',
                     minute: '2-digit',
@@ -405,7 +376,7 @@ export const KnowledgeAssistant: React.FC = () => {
             <span className="w-2 h-2 rounded-full bg-teal-calm animate-bounce" />
             <span className="w-2 h-2 rounded-full bg-teal-calm animate-bounce [animation-delay:0.2s]" />
             <span className="w-2 h-2 rounded-full bg-teal-calm animate-bounce [animation-delay:0.4s]" />
-            <span className="text-xs text-slate-muted font-medium ml-1">
+            <span className="text-xs text-slate-500 font-medium ml-1">
               Searching approved guidelines...
             </span>
           </div>
@@ -414,15 +385,11 @@ export const KnowledgeAssistant: React.FC = () => {
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Suggested Question Cards */}
-      <div className="shrink-0 space-y-2 pt-2">
-        <div className="flex items-center justify-between">
-          <p className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-            <HelpCircle className="w-3.5 h-3.5 text-teal-calm" />
-            <span>Suggested Inquiries</span>
-          </p>
-          <span className="text-[10px] text-slate-400 font-medium">Grounded in Clinical Protocol</span>
-        </div>
+      {/* Suggested Questions */}
+      <div className="shrink-0 space-y-1.5 pt-1">
+        <p className="text-xs font-semibold text-slate-500">
+          Suggested questions
+        </p>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
           {SUGGESTED_PROMPTS.slice(0, 3).map((prompt, idx) => (
@@ -431,12 +398,9 @@ export const KnowledgeAssistant: React.FC = () => {
               type="button"
               onClick={() => handleAsk(prompt)}
               disabled={isThinking}
-              className="text-left p-2.5 rounded-xl bg-white border border-slate-200/90 hover:border-teal-calm hover:bg-teal-50/30 transition-all text-xs text-navy-900 font-medium shadow-soft group disabled:opacity-50"
+              className="text-left p-2.5 rounded-xl bg-white border border-slate-200/90 hover:border-teal-calm hover:bg-teal-50/30 transition-all text-xs text-navy-900 font-medium shadow-soft disabled:opacity-50"
             >
               <span className="line-clamp-2">{prompt}</span>
-              <span className="text-[10px] font-semibold text-teal-calm block mt-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                Ask prompt →
-              </span>
             </button>
           ))}
         </div>
@@ -457,8 +421,8 @@ export const KnowledgeAssistant: React.FC = () => {
             onChange={(e) => setInputQuestion(e.target.value)}
             maxLength={500}
             disabled={isThinking}
-            placeholder="Ask about swelling, exercise discomfort, ice protocol, or wound care..."
-            className="flex-1 text-xs px-3.5 py-2.5 rounded-xl border border-warm-border focus:border-teal-calm focus:ring-1 focus:ring-teal-calm bg-white text-navy-900 shadow-soft disabled:bg-warm-subtle transition-all placeholder:text-slate-subtle"
+            placeholder="Ask a question about your recovery..."
+            className="flex-1 text-xs px-3.5 py-2.5 rounded-xl border border-warm-border focus:border-teal-calm focus:ring-1 focus:ring-teal-calm bg-white text-navy-900 shadow-soft disabled:bg-warm-subtle transition-all placeholder:text-slate-400"
           />
           <Button
             type="submit"
@@ -472,8 +436,8 @@ export const KnowledgeAssistant: React.FC = () => {
         </div>
 
         {/* Character Counter & Safety Disclaimer */}
-        <div className="flex justify-between items-center text-[10px] text-slate-subtle px-1">
-          <span>Not a diagnostic tool. Does not provide medical advice. For medical emergencies call 911.</span>
+        <div className="flex justify-between items-center text-[10px] text-slate-400 px-1">
+          <span>This assistant does not provide medical diagnosis. For emergencies, call 911.</span>
           <span>{inputQuestion.length}/500</span>
         </div>
       </form>
