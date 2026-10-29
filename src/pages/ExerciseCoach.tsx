@@ -80,7 +80,7 @@ export const ExerciseCoach: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const animFrameRef = useRef<number | null>(null);
-  const timerIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timerIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const sessionStartTimeRef = useRef<number>(0);
   const isPausedRef = useRef<boolean>(false);
   const repStateRef = useRef<RepCounterState>(repState);

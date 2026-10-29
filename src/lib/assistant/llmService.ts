@@ -29,7 +29,10 @@ const DEFAULT_TIMEOUT_MS = 10000; // 10s timeout to adhere to 13_EXTERNAL_INTEGR
  * Never exposed to browser bundle.
  */
 export function getServerLlmConfig(): LlmConfig | null {
-  const env = typeof process !== 'undefined' && process.env ? process.env : {};
+  const env: Record<string, string | undefined> =
+    typeof globalThis !== 'undefined' && (globalThis as unknown as { process?: { env?: Record<string, string> } }).process?.env
+      ? (globalThis as unknown as { process?: { env?: Record<string, string> } }).process!.env!
+      : {};
 
   const apiKey = env.LLM_API_KEY || env.OPENAI_API_KEY;
   const endpoint = env.LLM_ENDPOINT || (apiKey ? 'https://api.openai.com/v1/chat/completions' : undefined);
@@ -152,7 +155,7 @@ MANDATORY CLINICAL GUARDRAILS:
   } catch (err: unknown) {
     const errorObj = err as Error;
     if (errorObj.name === 'AbortError') {
-      throw new Error('LLM_TIMEOUT: The server-side LLM call timed out.', { cause: err });
+      throw new Error('LLM_TIMEOUT: The server-side LLM call timed out.');
     }
     throw errorObj;
   } finally {

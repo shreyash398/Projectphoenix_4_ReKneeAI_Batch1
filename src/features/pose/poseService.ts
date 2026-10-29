@@ -65,8 +65,7 @@ export async function getPoseLandmarker(): Promise<PoseLandmarker> {
   } catch (err) {
     console.error('Failed to load MediaPipe PoseLandmarker:', err);
     throw new Error(
-      'Could not initialize MediaPipe Pose model. Check network connectivity or use guided exercise mode.',
-      { cause: err }
+      `Could not initialize MediaPipe Pose model. Check network connectivity or use guided exercise mode.${err instanceof Error ? ` (${err.message})` : ''}`
     );
   } finally {
     isInitializing = false;

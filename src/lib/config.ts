@@ -9,7 +9,7 @@ interface AppConfig {
 }
 
 function resolveConfig(): AppConfig {
-  const env = typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : {};
+  const env = (typeof import.meta !== 'undefined' && import.meta.env ? import.meta.env : {}) as Record<string, string | undefined>;
   const url = (env.VITE_SUPABASE_URL as string) || null;
   const anonKey = (env.VITE_SUPABASE_ANON_KEY as string) || null;
 
