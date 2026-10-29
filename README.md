@@ -1,51 +1,112 @@
-# ReKnee AI
+<p align="center">
+  <img src="docs/images/hero-banner.jpg" alt="ReKnee AI — Connected Recovery Companion" width="100%" />
+</p>
 
-**The Connected Recovery Companion**
+<h1 align="center">ReKnee AI</h1>
 
-ReKnee AI is a mobile-first web application that supports patients recovering at home after knee replacement surgery. It bridges the gap between hospital discharge and follow-up visits by providing structured recovery guidance, exercise tracking, symptom monitoring, and real-time clinician oversight — all in one place.
+<p align="center">
+  <strong>The Connected Recovery Companion</strong>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/React-18-61DAFB?style=flat-square&logo=react" alt="React 18" />
+  <img src="https://img.shields.io/badge/TypeScript-5-3178C6?style=flat-square&logo=typescript" alt="TypeScript" />
+  <img src="https://img.shields.io/badge/Vite-5-646CFF?style=flat-square&logo=vite" alt="Vite" />
+  <img src="https://img.shields.io/badge/Supabase-Auth%20%2B%20RLS-3ECF8E?style=flat-square&logo=supabase" alt="Supabase" />
+  <img src="https://img.shields.io/badge/MediaPipe-Pose-FF6F00?style=flat-square&logo=google" alt="MediaPipe" />
+  <img src="https://img.shields.io/badge/Tailwind-CSS-06B6D4?style=flat-square&logo=tailwindcss" alt="Tailwind" />
+  <img src="https://img.shields.io/badge/Tests-185%20passing-22C55E?style=flat-square" alt="Tests" />
+  <img src="https://img.shields.io/badge/Deploy-Vercel-000000?style=flat-square&logo=vercel" alt="Vercel" />
+</p>
+
+<p align="center">
+  A mobile-first web application that bridges the gap between hospital discharge and follow-up visits for knee replacement patients — structured recovery guidance, camera-assisted exercise tracking, symptom monitoring, and real-time clinician oversight in one place.
+</p>
 
 ---
 
-## Problem
+## The Problem
 
-After discharge, patients often struggle to follow prescribed exercises, remember post-operative instructions, and communicate concerns between visits. Clinicians have limited visibility into what happens at home during the critical recovery window.
+After knee replacement surgery, patients are discharged into a recovery gap — weeks of uncertainty at home with limited guidance and no real-time clinician visibility:
 
-## Solution
+- 🏠 **Patients** struggle to follow prescribed exercises, remember post-operative instructions, and communicate concerns between visits
+- 🩺 **Clinicians** have zero visibility into recovery progress during the most critical healing window
+- 📉 **Outcomes** suffer when recoveries go off-track and aren't caught until the next appointment
 
-ReKnee AI makes the weeks after discharge more structured by:
+## The Solution
 
-- Presenting approved recovery guidance in a single, clear interface
-- Helping patients document exercise sessions using camera-assisted pose detection
-- Recording daily symptom check-ins with structured pain and mobility tracking
-- Answering recovery questions from a clinician-approved knowledge base
-- Surfacing configurable alerts to authorized clinicians for timely review
-- Providing doctor-verified recovery completion certificates
+ReKnee AI turns the weeks after discharge into a **structured, connected recovery experience**:
 
-> **Important:** ReKnee AI does not diagnose, prescribe, replace a clinician, or guarantee exercise correctness. Clinical content and thresholds are illustrative until reviewed by a qualified professional.
+- 📋 Approved recovery guidance in a single, clear interface
+- 📸 Camera-assisted exercise sessions with real-time pose detection
+- 📊 Daily symptom check-ins with structured pain and mobility tracking
+- 🤖 AI assistant answering questions from a clinician-approved knowledge base
+- 🚨 Configurable alerts surfaced to clinicians for timely review
+- ✅ Doctor-verified recovery completion certificates
+
+> **Note:** ReKnee AI does not diagnose, prescribe, or replace a clinician. Clinical content and thresholds are illustrative until reviewed by a qualified professional.
+
+---
+
+## App Screenshots
+
+### Patient Portal
+
+<p align="center">
+  <img src="docs/images/patient-home.png" alt="Patient Home — Recovery Dashboard" width="80%" />
+</p>
+
+<p align="center"><em>Recovery Home — Personalized dashboard with today's plan, progress summary, and quick actions</em></p>
+
+<p align="center">
+  <img src="docs/images/exercise-coach.png" alt="Exercise Coach — Camera-Assisted Tracking" width="80%" />
+</p>
+
+<p align="center"><em>Exercise Coach — Camera-assisted session with MediaPipe pose detection and real-time feedback</em></p>
+
+<p align="center">
+  <img src="docs/images/daily-checkin.png" alt="Daily Check-in — Symptom Reporting" width="80%" />
+</p>
+
+<p align="center"><em>Daily Check-in — Structured symptom reporting with pain scale, swelling, and mobility tracking</em></p>
+
+<p align="center">
+  <img src="docs/images/progress-history.png" alt="Progress History — Recovery Timeline" width="80%" />
+</p>
+
+<p align="center"><em>Progress History — Visual recovery timeline with pain trends and session history</em></p>
+
+### Clinician Portal
+
+<p align="center">
+  <img src="docs/images/clinician-overview.png" alt="Clinician Overview — Clinical Dashboard" width="80%" />
+</p>
+
+<p align="center"><em>Clinical Overview — Triage dashboard with patient metrics, alert queue, and pending verifications</em></p>
 
 ---
 
 ## Features
 
-### Patient Portal
+### 🏥 Patient Portal
 
-| Feature | Description |
+| Feature | What it does |
 |---------|-------------|
-| **Recovery Home** | Personalized dashboard showing today's plan, progress summary, and quick actions |
-| **Exercise Coach** | Camera-assisted exercise session with MediaPipe pose landmark detection, rep counting, and real-time feedback |
-| **Daily Check-in** | Structured symptom reporting — pain scale (0–10), swelling, stiffness, mobility, and free-text notes |
-| **Progress History** | Visual recovery timeline with pain trends, session history, and milestone tracking via Recharts |
-| **Knowledge Assistant** | Grounded Q&A from approved recovery content with source references and safe fallback for unsupported questions |
-| **Verified Reports** | Doctor-verified recovery completion certificates with PDF generation and audit trail |
+| **Recovery Home** | Personalized dashboard — today's plan, progress rings, and quick-action cards |
+| **Exercise Coach** | Camera-assisted sessions with MediaPipe pose landmark detection, rep counting, and real-time form feedback |
+| **Daily Check-in** | Structured symptom reporting — pain (0–10), swelling, stiffness, mobility, and free-text notes |
+| **Progress History** | Visual recovery timeline with pain trends, session history, and milestone tracking |
+| **Knowledge Assistant** | Grounded Q&A from approved recovery content with source references |
+| **Verified Reports** | Doctor-verified recovery completion certificates with PDF generation |
 
-### Clinician Portal
+### 🩺 Clinician Portal
 
-| Feature | Description |
+| Feature | What it does |
 |---------|-------------|
-| **Clinical Overview** | Triage dashboard with patient summary metrics, high-priority alert queue, pending verifications, and recent activity feed |
-| **Patient Directory** | Searchable roster of authorized patients with recovery status, pain scores, and direct record access |
-| **Patient Detail** | Complete patient record — recovery plan, exercise sessions, check-in history, pain trends, and alert timeline |
-| **Alert Management** | Rule-based clinical alert queue with acknowledge, review, and follow-up actions — fully audited |
+| **Clinical Overview** | Triage dashboard — patient metrics, high-priority alert queue, pending verifications, and recent activity |
+| **Patient Directory** | Searchable roster with recovery status, pain scores, and direct record access |
+| **Patient Detail** | Complete record — recovery plan, exercise sessions, check-in history, pain trends, and alert timeline |
+| **Alert Management** | Rule-based alert queue with acknowledge, review, and follow-up actions — fully audited |
 | **Verification Review** | Review and cryptographically sign patient recovery completion reports |
 
 ---
@@ -53,9 +114,9 @@ ReKnee AI makes the weeks after discharge more structured by:
 ## Tech Stack
 
 | Layer | Technology |
-|-------|------------|
+|-------|-----------|
 | **Frontend** | React 18 · TypeScript · Vite |
-| **Styling** | Tailwind CSS · Custom design tokens |
+| **Styling** | Tailwind CSS · Custom Clinical Kineticism design tokens |
 | **Icons** | Lucide React |
 | **Charts** | Recharts |
 | **Pose Detection** | MediaPipe Pose Landmarker (`@mediapipe/tasks-vision`) |
@@ -69,17 +130,26 @@ ReKnee AI makes the weeks after discharge more structured by:
 ## Architecture
 
 ```
-Browser
-  → React UI (pages, components, features)
-  → Supabase Auth / PostgreSQL + RLS
-  → Optional protected assistant endpoint
-  → MediaPipe running locally in-browser
+┌──────────────────────────────────────────────────────────┐
+│                        Browser                           │
+├──────────────────────────────────────────────────────────┤
+│  React UI (pages · components · features)                │
+│  ├── MediaPipe Pose Detection (runs on-device)           │
+│  ├── Grounded Knowledge Assistant                        │
+│  └── PDF Report Generator                                │
+├──────────────────────────────────────────────────────────┤
+│  Supabase Auth · PostgreSQL + Row-Level Security         │
+│  ├── Patient data isolation                              │
+│  ├── Clinician-patient access relationships              │
+│  └── Immutable audit trail                               │
+└──────────────────────────────────────────────────────────┘
 ```
 
-**Key principles:**
+**Key Principles:**
+
 - Single web application, one managed backend — no unnecessary microservices
-- Server-side authorization with Row-Level Security as the final boundary
-- Clinician access requires an explicit patient-access relationship
+- Row-Level Security as the final authorization boundary
+- Clinician access requires an explicit `clinician_patient_access` relationship
 - Camera frames stay on-device; only session metadata is persisted
 - Modular feature boundaries with typed service layers
 
@@ -92,16 +162,16 @@ src/
 ├── components/         # Shared UI components (layout, common)
 ├── pages/              # Route-level page components
 ├── features/           # Feature modules
-│   ├── pose/           # MediaPipe pose detection & exercise logic
-│   ├── assistant/      # Knowledge assistant service
-│   ├── checkins/       # Symptom check-in service
-│   ├── alerts/         # Alert engine & rule processing
-│   └── progress/       # Progress tracking & visualization
+│   ├── pose/           #   MediaPipe pose detection & exercise logic
+│   ├── assistant/      #   Knowledge assistant service
+│   ├── checkins/       #   Symptom check-in service
+│   ├── alerts/         #   Alert engine & rule processing
+│   └── progress/       #   Progress tracking & visualization
 ├── lib/                # Core libraries
-│   ├── supabase/       # Supabase client, repository, mock store
-│   ├── alerts/         # Alert rule engine
-│   ├── assistant/      # Knowledge base & retrieval
-│   └── reports/        # PDF certificate generation
+│   ├── supabase/       #   Supabase client, repository, mock store
+│   ├── alerts/         #   Alert rule engine
+│   ├── assistant/      #   Knowledge base & retrieval
+│   └── reports/        #   PDF certificate generation
 ├── contexts/           # React context providers (Auth)
 ├── types/              # TypeScript type definitions
 ├── App.tsx             # Router & route configuration
@@ -114,8 +184,8 @@ src/
 
 ### Prerequisites
 
-- Node.js 18+
-- npm 9+
+- **Node.js** 18+
+- **npm** 9+
 
 ### Installation
 
@@ -128,97 +198,106 @@ cd Projectphoenix_4_ReKneeAI_Batch1
 npm install
 ```
 
-### Environment
-
-Create a `.env` file from the example:
+### Environment Setup
 
 ```bash
 cp .env.example .env
 ```
 
-Required variables:
+**Required:**
 ```env
 VITE_SUPABASE_URL=your_supabase_project_url
 VITE_SUPABASE_ANON_KEY=your_supabase_anon_key
 ```
 
-Optional (server-only):
+**Optional (server-only):**
 ```env
 LLM_API_KEY=your_llm_api_key
 ```
 
-> The app runs in offline local repository mode with synthetic data when Supabase credentials are not configured.
+> 💡 The app runs in **offline local repository mode** with synthetic data when Supabase credentials are not configured — perfect for local development and testing.
 
 ### Development
 
 ```bash
-npm run dev          # Start development server (http://localhost:5173)
-npm run build        # Production build (tsc + vite build)
+npm run dev          # Start dev server → http://localhost:5173
+npm run build        # Production build (tsc + vite)
 npm run preview      # Preview production build
 npm run lint         # Run ESLint
-npm run test         # Run Vitest test suite (185 tests)
+npm run test         # Run test suite (185 tests)
 ```
 
 ---
 
 ## Routes
 
-| Path | Role | Page |
-|------|------|------|
-| `/` | Patient | Recovery Home |
-| `/exercise` | Patient | Exercise Coach |
-| `/check-in` | Patient | Daily Symptom Check-in |
-| `/assistant` | Patient | Knowledge Assistant |
-| `/progress` | Patient | Progress History |
-| `/reports` | Patient | Verified Reports |
-| `/clinician` | Clinician | Clinical Overview |
-| `/clinician/patients` | Clinician | Patient Directory |
-| `/clinician/patients/:id` | Clinician | Patient Detail |
-| `/clinician/alerts` | Clinician | Alert Queue |
-| `/clinician/alerts/:id` | Clinician | Alert Review |
-| `/clinician/verifications` | Clinician | Verification Requests |
+### Patient Portal
+
+| Path | Page |
+|------|------|
+| `/` | Recovery Home |
+| `/exercise` | Exercise Coach |
+| `/check-in` | Daily Symptom Check-in |
+| `/assistant` | Knowledge Assistant |
+| `/progress` | Progress History |
+| `/reports` | Verified Reports |
+
+### Clinician Portal
+
+| Path | Page |
+|------|------|
+| `/clinician` | Clinical Overview |
+| `/clinician/patients` | Patient Directory |
+| `/clinician/patients/:id` | Patient Detail |
+| `/clinician/alerts` | Alert Queue |
+| `/clinician/alerts/:id` | Alert Review |
+| `/clinician/verifications` | Verification Requests |
 
 ---
 
-## Security & Authorization
+## Security & Privacy
 
-- **Authentication:** Supabase Auth with role-based session management
-- **Authorization:** PostgreSQL Row-Level Security (RLS) as the final enforcement boundary
-- **Clinician access:** Requires an explicit `clinician_patient_access` relationship — no implicit access
-- **Data isolation:** Patients can only access their own records
-- **Audit trail:** All clinician actions (alert reviews, verification approvals) are immutably logged
-- **Camera privacy:** Frames processed on-device via MediaPipe; no raw video is stored or transmitted
-- **No secrets in frontend:** API keys and service-role credentials are never exposed to the browser
+| Measure | Description |
+|---------|-------------|
+| **Authentication** | Supabase Auth with role-based session management |
+| **Authorization** | PostgreSQL Row-Level Security as the enforcement boundary |
+| **Clinician Access** | Explicit `clinician_patient_access` relationship required |
+| **Data Isolation** | Patients can only access their own records |
+| **Audit Trail** | All clinician actions immutably logged |
+| **Camera Privacy** | Frames processed on-device via MediaPipe — no video stored or transmitted |
+| **No Secrets in Frontend** | API keys and service-role credentials never exposed to the browser |
 
 ---
 
 ## Testing
 
-The project includes a comprehensive test suite covering:
+Comprehensive test suite with **185 tests** across 10 test files:
 
-- **Authentication & authorization security** — role enforcement, RLS boundary testing, cross-patient isolation
-- **Clinician dashboard** — metrics aggregation, patient roster, detail views, authorization checks
-- **Alert engine** — rule-based alert generation, clinician acknowledgement, audit trails
-- **Knowledge assistant** — grounded retrieval, LLM fallback, rate limiting, abuse protection
-- **Verification reports** — lifecycle workflow, clinician approval, PDF generation, audit history
-- **Exercise sessions** — session recording, pose detection integration
-- **Symptom check-ins** — structured data capture, pain scale validation
+- ✅ Authentication & authorization security — role enforcement, RLS boundaries, cross-patient isolation
+- ✅ Clinician dashboard — metrics, patient roster, detail views, authorization
+- ✅ Alert engine — rule-based generation, acknowledgement, audit trails
+- ✅ Knowledge assistant — grounded retrieval, LLM fallback, rate limiting, abuse protection
+- ✅ Verification reports — lifecycle workflow, approval, PDF generation, audit
+- ✅ Exercise sessions — recording, pose detection integration
+- ✅ Symptom check-ins — structured data capture, pain scale validation
 
 ```bash
 npm run test
-# 10 test files · 185 tests · all passing
+# ✓ 10 test files · 185 tests · all passing
 ```
 
 ---
 
 ## Contributors
 
-| Name | Role |
-|------|------|
-| **Shreyash Kundalkar** | Project Lead & Full-Stack Development |
-| **Soham Rane** | Frontend Development & UI/UX Design |
-| **Ritesh Wagh** | Backend Development & Database Architecture |
-| **Sarthak Kale** | Testing, QA & Documentation |
+<table>
+  <tr>
+    <td align="center"><strong>Shreyash Kundalkar</strong><br/>Project Lead & Full-Stack Development</td>
+    <td align="center"><strong>Soham Rane</strong><br/>Frontend Development & UI/UX Design</td>
+    <td align="center"><strong>Ritesh Wagh</strong><br/>Backend Development & Database Architecture</td>
+    <td align="center"><strong>Sarthak Kale</strong><br/>Testing, QA & Documentation</td>
+  </tr>
+</table>
 
 ---
 
