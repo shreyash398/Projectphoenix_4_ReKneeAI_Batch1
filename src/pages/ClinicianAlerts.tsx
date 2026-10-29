@@ -13,9 +13,7 @@ import {
   ChevronDown,
   ChevronUp,
 } from 'lucide-react';
-import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
-import { Badge, BadgeVariant } from '../components/common/Badge';
 import { Modal } from '../components/common/Modal';
 import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
 import { repository } from '../lib/supabase/repository';
@@ -106,19 +104,6 @@ export const ClinicianAlerts: React.FC = () => {
     return a.category === categoryFilter;
   });
 
-  const getSeverityBadgeVariant = (sev: Alert['severity']): BadgeVariant => {
-    switch (sev) {
-      case 'critical':
-        return 'error';
-      case 'urgent':
-        return 'warning';
-      case 'moderate':
-        return 'engagement';
-      default:
-        return 'neutral';
-    }
-  };
-
   const rulesSummary = getRulesSummary();
 
   return (
@@ -126,61 +111,64 @@ export const ClinicianAlerts: React.FC = () => {
       {/* Top Header */}
       <button
         onClick={() => navigate('/clinician')}
-        className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-navy-900 transition-colors"
+        className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-slate-200 text-xs font-semibold text-slate-600 hover:text-on-surface hover:border-slate-300 transition-all shadow-sm"
       >
-        <ArrowLeft className="w-4 h-4" />
-        <span>Clinician Dashboard</span>
+        <ArrowLeft className="w-3.5 h-3.5" />
+        <span>Clinician Overview</span>
       </button>
 
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-navy-900 tracking-tight">Clinician Alerts</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            Review patient alerts and clinical escalations.
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-rose-50 text-rose-700 text-xs font-semibold mb-2">
+            <span className="w-2 h-2 rounded-full bg-rose-500 animate-pulse" />
+            <span>Clinical Triage Queue</span>
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">Active Clinical Alerts</h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Review patient threshold escalations, protocol deviations, and log clinical actions
           </p>
         </div>
 
-        <Button
-          size="sm"
-          variant="outline"
+        <button
           onClick={() => setShowRulesModal(true)}
-          icon={<Settings2 className="w-3.5 h-3.5" />}
+          className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:border-slate-300 transition-all shadow-sm self-start sm:self-auto"
         >
-          Configured rules
-        </Button>
+          <Settings2 className="w-3.5 h-3.5 text-slate-500" />
+          <span>Configured Rules</span>
+        </button>
       </div>
 
       {/* Filter Tabs */}
-      <div className="flex gap-2 border-b border-slate-200 pb-2 text-xs">
+      <div className="flex gap-2 overflow-x-auto pb-1 text-xs">
         <button
           onClick={() => setCategoryFilter('all')}
-          className={`px-3 py-1.5 rounded-lg font-semibold transition-colors ${
+          className={`px-4 py-2 rounded-full font-semibold transition-all whitespace-nowrap ${
             categoryFilter === 'all'
-              ? 'bg-navy-900 text-white'
-              : 'bg-white text-slate-600 hover:bg-slate-100'
+              ? 'bg-on-surface text-white shadow-sm'
+              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
           }`}
         >
-          All alerts ({alerts.length})
+          All Alerts ({alerts.length})
         </button>
         <button
           onClick={() => setCategoryFilter('clinical_review')}
-          className={`px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`px-4 py-2 rounded-full font-semibold transition-all flex items-center gap-2 whitespace-nowrap ${
             categoryFilter === 'clinical_review'
-              ? 'bg-rose-700 text-white'
-              : 'bg-white text-slate-600 hover:bg-slate-100'
+              ? 'bg-rose-600 text-white shadow-sm'
+              : 'bg-white border border-slate-200 text-slate-600 hover:border-rose-300'
           }`}
         >
-          <span>Clinical review ({alerts.filter((a) => a.category === 'clinical_review').length})</span>
+          <span>Clinical Escalations ({alerts.filter((a) => a.category === 'clinical_review').length})</span>
         </button>
         <button
           onClick={() => setCategoryFilter('engagement')}
-          className={`px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`px-4 py-2 rounded-full font-semibold transition-all flex items-center gap-2 whitespace-nowrap ${
             categoryFilter === 'engagement'
-              ? 'bg-teal-calm text-white'
-              : 'bg-white text-slate-600 hover:bg-slate-100'
+              ? 'bg-primary text-white shadow-sm'
+              : 'bg-white border border-slate-200 text-slate-600 hover:border-primary'
           }`}
         >
-          <span>Engagement reminders ({alerts.filter((a) => a.category === 'engagement').length})</span>
+          <span>Engagement Reminders ({alerts.filter((a) => a.category === 'engagement').length})</span>
         </button>
       </div>
 
@@ -191,42 +179,49 @@ export const ClinicianAlerts: React.FC = () => {
           <LoadingSkeleton lines={3} />
         </div>
       ) : filteredAlerts.length === 0 ? (
-        <Card className="text-center py-10 bg-white">
-          <CheckCircle2 className="w-8 h-8 text-status-success mx-auto mb-2" />
-          <h2 className="text-sm font-bold text-navy-900">All alerts reviewed</h2>
-          <p className="text-xs text-slate-400 mt-0.5">
-            No active alerts matching your filter.
+        <div className="rounded-3xl text-center py-12 bg-white border border-slate-100 shadow-[0_4px_24px_-4px_rgba(17,24,39,0.06)]">
+          <CheckCircle2 className="w-10 h-10 text-emerald-500 mx-auto mb-2" />
+          <h2 className="text-sm font-bold text-on-surface">All alerts cleared and reviewed</h2>
+          <p className="text-xs text-slate-400 mt-1">
+            No active alerts matching your selected triage filter.
           </p>
-        </Card>
+        </div>
       ) : (
-        <div className="space-y-3">
+        <div className="space-y-3.5">
           {filteredAlerts.map((alert) => {
             const auditActions = alertActionsMap[alert.id] || [];
             const isAuditExpanded = expandedAuditAlertId === alert.id;
 
             return (
-              <Card
+              <div
                 key={alert.id}
-                className={`p-4 bg-white shadow-soft border-l-4 ${
+                className={`rounded-3xl p-5 bg-white border border-slate-100 shadow-[0_4px_24px_-4px_rgba(17,24,39,0.06)] hover:shadow-card transition-all border-l-4 ${
                   alert.category === 'clinical_review'
                     ? 'border-l-rose-500'
-                    : 'border-l-teal-calm'
+                    : 'border-l-primary'
                 }`}
               >
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2">
-                    <Badge variant={getSeverityBadgeVariant(alert.severity)} size="sm">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 mb-2.5">
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold uppercase tracking-wider ${
+                      alert.severity === 'critical'
+                        ? 'bg-rose-100 text-rose-800'
+                        : alert.severity === 'urgent'
+                        ? 'bg-amber-100 text-amber-800'
+                        : 'bg-slate-100 text-slate-700'
+                    }`}>
                       {alert.severity}
-                    </Badge>
+                    </span>
 
-                    <Badge
-                      variant={alert.category === 'clinical_review' ? 'error' : 'teal'}
-                      size="sm"
-                    >
-                      {alert.category === 'clinical_review' ? 'Clinical escalation' : 'Reminder'}
-                    </Badge>
+                    <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                      alert.category === 'clinical_review'
+                        ? 'bg-rose-50 text-rose-700'
+                        : 'bg-emerald-50 text-emerald-700'
+                    }`}>
+                      {alert.category === 'clinical_review' ? 'Clinical Escalation' : 'Reminder'}
+                    </span>
 
-                    <span className="text-[11px] text-slate-400">
+                    <span className="text-[11px] text-slate-400 font-medium">
                       {new Date(alert.created_at).toLocaleString([], {
                         month: 'short',
                         day: 'numeric',
@@ -236,33 +231,30 @@ export const ClinicianAlerts: React.FC = () => {
                     </span>
                   </div>
 
-                  <Badge
-                    variant={
-                      alert.status === 'new'
-                        ? 'warning'
-                        : alert.status === 'acknowledged'
-                        ? 'engagement'
-                        : 'success'
-                    }
-                    size="sm"
-                  >
+                  <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold self-start sm:self-auto ${
+                    alert.status === 'new'
+                      ? 'bg-amber-50 text-amber-800 border border-amber-200'
+                      : alert.status === 'acknowledged'
+                      ? 'bg-sky-50 text-sky-800 border border-sky-200'
+                      : 'bg-emerald-50 text-emerald-800 border border-emerald-200'
+                  }`}>
                     {alert.status === 'new'
-                      ? 'New'
+                      ? 'New Alert'
                       : alert.status === 'acknowledged'
                       ? 'Acknowledged'
                       : 'Reviewed'}
-                  </Badge>
+                  </span>
                 </div>
 
-                <p className="text-xs sm:text-sm font-semibold text-navy-900 mb-3">
+                <p className="text-xs sm:text-sm font-semibold text-on-surface mb-4 leading-relaxed">
                   {alert.reason}
                 </p>
 
                 <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pt-3 border-t border-slate-100">
                   <div className="text-[11px] text-slate-500 flex items-center gap-2">
-                    <div className="flex items-center gap-1.5">
-                      <User className="w-3.5 h-3.5 text-teal-calm" />
-                      <span>Patient record</span>
+                    <div className="flex items-center gap-1.5 font-medium">
+                      <User className="w-3.5 h-3.5 text-primary" />
+                      <span>Assigned Patient</span>
                     </div>
 
                     {auditActions.length > 0 && (
@@ -270,10 +262,10 @@ export const ClinicianAlerts: React.FC = () => {
                         onClick={() =>
                           setExpandedAuditAlertId(isAuditExpanded ? null : alert.id)
                         }
-                        className="text-teal-calm hover:text-teal-hover flex items-center gap-1 text-[11px] ml-2 font-medium"
+                        className="text-primary hover:underline flex items-center gap-1 text-[11px] ml-2 font-semibold"
                       >
                         <History className="w-3 h-3" />
-                        <span>Audit log ({auditActions.length})</span>
+                        <span>Audit Log ({auditActions.length})</span>
                         {isAuditExpanded ? (
                           <ChevronUp className="w-3 h-3" />
                         ) : (
@@ -283,41 +275,38 @@ export const ClinicianAlerts: React.FC = () => {
                     )}
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex flex-wrap items-center gap-2">
                     {alert.patient_id && (
-                      <Button
-                        size="sm"
-                        variant="outline"
+                      <button
                         onClick={() => navigate(`/clinician/patients/${alert.patient_id}`)}
+                        className="px-3.5 py-1.5 rounded-full border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-all"
                       >
-                        Patient chart
-                      </Button>
+                        Patient Chart
+                      </button>
                     )}
 
                     {alert.status === 'new' && (
-                      <Button
-                        size="sm"
-                        variant="outline"
+                      <button
                         onClick={() => handleAcknowledge(alert)}
-                        icon={<CheckCircle className="w-3.5 h-3.5" />}
+                        className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full border border-slate-200 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-50 transition-all"
                       >
-                        Acknowledge
-                      </Button>
+                        <CheckCircle className="w-3.5 h-3.5 text-slate-500" />
+                        <span>Acknowledge</span>
+                      </button>
                     )}
 
                     {alert.status !== 'reviewed' && alert.status !== 'closed' ? (
-                      <Button
-                        size="sm"
-                        variant="primary"
+                      <button
                         onClick={() => {
                           setSelectedAlert(alert);
                           setActionNotes('');
                         }}
+                        className="px-4 py-1.5 rounded-full bg-primary hover:bg-primary/90 text-white font-semibold text-xs shadow-md shadow-primary/20 transition-all active:scale-95"
                       >
-                        Review alert
-                      </Button>
+                        Review Alert
+                      </button>
                     ) : (
-                      <span className="text-[11px] text-status-success font-semibold flex items-center gap-1">
+                      <span className="text-[11px] text-emerald-700 font-semibold flex items-center gap-1 bg-emerald-50 px-2.5 py-1 rounded-full">
                         <CheckCircle className="w-3.5 h-3.5" />
                         Reviewed
                       </span>
@@ -327,15 +316,15 @@ export const ClinicianAlerts: React.FC = () => {
 
                 {/* Audit trail */}
                 {isAuditExpanded && auditActions.length > 0 && (
-                  <div className="mt-3 pt-3 border-t border-slate-100 bg-slate-50 p-3 rounded-xl space-y-1.5 text-xs">
-                    <p className="font-semibold text-navy-900 text-[11px]">
+                  <div className="mt-3 pt-3 border-t border-slate-100 bg-slate-50/80 p-3.5 rounded-2xl space-y-2 text-xs">
+                    <p className="font-bold text-on-surface text-[11px]">
                       Clinical Action Audit Trail:
                     </p>
                     {auditActions.map((act) => (
-                      <div key={act.id} className="bg-white p-2 rounded border border-slate-200 text-xs">
+                      <div key={act.id} className="bg-white p-2.5 rounded-xl border border-slate-200 text-xs shadow-2xs">
                         <div className="flex justify-between items-center text-[10px] text-slate-400">
-                          <span className="font-semibold text-navy-900">{act.action}</span>
-                          <span>
+                          <span className="font-bold text-on-surface">{act.action}</span>
+                          <span className="font-medium">
                             {new Date(act.created_at).toLocaleString([], {
                               month: 'short',
                               day: 'numeric',
@@ -345,13 +334,13 @@ export const ClinicianAlerts: React.FC = () => {
                           </span>
                         </div>
                         {act.notes && (
-                          <p className="text-slate-600 text-[11px] mt-0.5">{act.notes}</p>
+                          <p className="text-slate-600 text-[11px] mt-1 font-medium">{act.notes}</p>
                         )}
                       </div>
                     ))}
                   </div>
                 )}
-              </Card>
+              </div>
             );
           })}
         </div>
@@ -439,9 +428,11 @@ export const ClinicianAlerts: React.FC = () => {
             <div key={rule.id} className="p-2.5 rounded-lg border border-slate-200 bg-white space-y-1">
               <div className="flex items-center justify-between">
                 <span className="font-bold text-navy-900">{rule.name}</span>
-                <Badge variant={rule.category === 'clinical_review' ? 'error' : 'teal'} size="sm">
+                <span className={`px-2.5 py-0.5 rounded-full text-[10px] font-bold ${
+                  rule.category === 'clinical_review' ? 'bg-rose-50 text-rose-700' : 'bg-emerald-50 text-emerald-700'
+                }`}>
                   {rule.category}
-                </Badge>
+                </span>
               </div>
               <p className="text-slate-500 text-[11px]">{rule.description}</p>
             </div>

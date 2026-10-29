@@ -16,7 +16,6 @@ import {
   Clock,
   ExternalLink,
 } from 'lucide-react';
-import { Button } from '../components/common/Button';
 import { repository } from '../lib/supabase/repository';
 import { useAuth } from '../contexts/AuthContext';
 import { askAssistantQuestion } from '../lib/assistant/assistantClient';
@@ -387,20 +386,20 @@ export const KnowledgeAssistant: React.FC = () => {
 
       {/* Suggested Questions */}
       <div className="shrink-0 space-y-1.5 pt-1">
-        <p className="text-xs font-semibold text-slate-500">
+        <p className="text-[11px] font-bold text-on-surface-variant uppercase tracking-wider">
           Suggested questions
         </p>
 
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+        <div className="flex flex-wrap gap-2">
           {SUGGESTED_PROMPTS.slice(0, 3).map((prompt, idx) => (
             <button
               key={idx}
               type="button"
               onClick={() => handleAsk(prompt)}
               disabled={isThinking}
-              className="text-left p-2.5 rounded-xl bg-white border border-slate-200/90 hover:border-teal-calm hover:bg-teal-50/30 transition-all text-xs text-navy-900 font-medium shadow-soft disabled:opacity-50"
+              className="text-left px-3.5 py-1.5 rounded-full bg-white border border-surface-container-high/60 hover:bg-surface-container-low transition-all text-xs text-on-surface font-medium shadow-soft disabled:opacity-50"
             >
-              <span className="line-clamp-2">{prompt}</span>
+              <span>{prompt}</span>
             </button>
           ))}
         </div>
@@ -414,29 +413,28 @@ export const KnowledgeAssistant: React.FC = () => {
         }}
         className="space-y-1.5 shrink-0 pt-1"
       >
-        <div className="flex gap-2">
+        <div className="flex items-center gap-2 bg-white rounded-full p-1.5 pl-4 shadow-float border border-surface-container-high/60">
           <input
             type="text"
             value={inputQuestion}
             onChange={(e) => setInputQuestion(e.target.value)}
             maxLength={500}
             disabled={isThinking}
-            placeholder="Ask a question about your recovery..."
-            className="flex-1 text-xs px-3.5 py-2.5 rounded-xl border border-warm-border focus:border-teal-calm focus:ring-1 focus:ring-teal-calm bg-white text-navy-900 shadow-soft disabled:bg-warm-subtle transition-all placeholder:text-slate-400"
+            placeholder="Ask about exercises, sensations, ice..."
+            className="flex-1 bg-transparent text-xs sm:text-sm text-on-surface placeholder:text-outline focus:outline-none"
           />
-          <Button
+          <button
             type="submit"
-            variant="primary"
-            size="md"
             disabled={!inputQuestion.trim() || isThinking}
-            icon={isThinking ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+            className="w-10 h-10 rounded-full bg-primary-container text-on-primary-container flex items-center justify-center shadow-sm disabled:opacity-40 transition-transform active:scale-95"
+            aria-label="Send question"
           >
-            {isThinking ? 'Searching' : 'Ask'}
-          </Button>
+            {isThinking ? <RefreshCw className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+          </button>
         </div>
 
         {/* Character Counter & Safety Disclaimer */}
-        <div className="flex justify-between items-center text-[10px] text-slate-400 px-1">
+        <div className="flex justify-between items-center text-[10px] text-on-surface-variant px-3">
           <span>This assistant does not provide medical diagnosis. For emergencies, call 911.</span>
           <span>{inputQuestion.length}/500</span>
         </div>

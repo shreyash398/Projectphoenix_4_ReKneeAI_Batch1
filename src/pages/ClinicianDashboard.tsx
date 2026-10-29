@@ -23,8 +23,6 @@ import {
 } from 'lucide-react';
 import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
-import { Badge } from '../components/common/Badge';
-import { MetricCard } from '../components/common/MetricCard';
 import { LoadingSkeleton } from '../components/common/LoadingSkeleton';
 import { repository } from '../lib/supabase/repository';
 import { useAuth } from '../contexts/AuthContext';
@@ -212,122 +210,166 @@ export const ClinicianDashboard: React.FC = () => {
   return (
     <div className="space-y-7 max-w-4xl mx-auto pb-12">
       {/* ─── Header ────────────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-navy-900 tracking-tight">Clinical Overview</h1>
-          <p className="text-xs text-slate-500 mt-0.5">
-            What needs my attention right now?
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200/60 text-xs font-semibold mb-2">
+            <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+            Live Clinical Telemetry
+          </div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">Clinical Overview</h1>
+          <p className="text-xs sm:text-sm text-slate-500 mt-1">
+            Real-time patient adherence, critical alerts, and verification queue
           </p>
         </div>
 
-        <div className="flex items-center gap-2">
-          <Button
-            size="sm"
-            variant="outline"
+        <div className="flex items-center gap-2.5">
+          <button
             onClick={() => navigate('/clinician/verifications')}
-            icon={<ShieldCheck className="w-3.5 h-3.5 text-teal-calm" />}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-white border border-slate-200 text-xs font-semibold text-slate-700 hover:border-primary hover:text-primary transition-all shadow-sm"
           >
-            Verifications ({pendingVerifications.length})
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
+            <ShieldCheck className="w-4 h-4 text-primary" />
+            <span>Verifications</span>
+            <span className="px-1.5 py-0.5 rounded-full bg-slate-100 text-[10px] font-bold text-slate-600">
+              {pendingVerifications.length}
+            </span>
+          </button>
+          <button
             onClick={() => navigate('/clinician/alerts')}
-            icon={<AlertTriangle className="w-3.5 h-3.5 text-rose-600" />}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-full border text-xs font-semibold transition-all shadow-sm ${
+              highPriorityAlerts.length > 0
+                ? 'bg-rose-50 border-rose-200 text-rose-700 hover:bg-rose-100'
+                : 'bg-white border-slate-200 text-slate-700 hover:border-slate-300'
+            }`}
           >
-            Alerts ({highPriorityAlerts.length})
-          </Button>
+            <AlertTriangle className={`w-4 h-4 ${highPriorityAlerts.length > 0 ? 'text-rose-600' : 'text-slate-400'}`} />
+            <span>Alerts</span>
+            <span className={`px-1.5 py-0.5 rounded-full text-[10px] font-bold ${
+              highPriorityAlerts.length > 0 ? 'bg-rose-200 text-rose-800' : 'bg-slate-100 text-slate-600'
+            }`}>
+              {highPriorityAlerts.length}
+            </span>
+          </button>
         </div>
       </div>
 
       {/* ─── C. Patient Summary Metrics ────────────────────────────────────── */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-        <MetricCard
-          label="Assigned Patients"
-          value={authorizedPatients.length}
-          sublabel="Under your active clinical care"
-          icon={<Users className="w-4 h-4" />}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-3.5">
+        <div
           onClick={() => navigate('/clinician/patients')}
-        />
-        <MetricCard
-          label="Patients With Alerts"
-          value={patientsWithAlertsCount}
-          sublabel={patientsWithAlertsCount > 0 ? 'Require clinical triage' : 'All patients within normal thresholds'}
-          icon={<AlertTriangle className="w-4 h-4" />}
-          iconBgColor={patientsWithAlertsCount > 0 ? 'bg-rose-50' : 'bg-emerald-50'}
-          iconColor={patientsWithAlertsCount > 0 ? 'text-rose-600' : 'text-emerald-600'}
+          className="rounded-3xl bg-white p-5 border border-slate-100 shadow-[0_4px_24px_-4px_rgba(17,24,39,0.06)] hover:border-slate-300 transition-all cursor-pointer group"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Assigned Patients</span>
+            <div className="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-600 group-hover:bg-primary-container group-hover:text-on-primary-container transition-colors">
+              <Users className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-3xl font-extrabold text-on-surface tracking-tight">{authorizedPatients.length}</div>
+          <p className="text-xs text-slate-500 mt-1 font-medium">Under your active clinical supervision</p>
+        </div>
+
+        <div
           onClick={() => navigate('/clinician/alerts')}
-        />
-        <MetricCard
-          label="Pending Verifications"
-          value={pendingVerifications.length}
-          sublabel={pendingVerifications.length > 0 ? 'Awaiting clinical review' : 'All requests completed'}
-          icon={<FileCheck className="w-4 h-4" />}
-          iconBgColor="bg-teal-light"
-          iconColor="text-teal-calm"
+          className="rounded-3xl bg-white p-5 border border-slate-100 shadow-[0_4px_24px_-4px_rgba(17,24,39,0.06)] hover:border-slate-300 transition-all cursor-pointer group"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Needs Triage</span>
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center transition-colors ${
+              patientsWithAlertsCount > 0
+                ? 'bg-rose-50 text-rose-600 group-hover:bg-rose-100'
+                : 'bg-emerald-50 text-emerald-600'
+            }`}>
+              <AlertTriangle className="w-4 h-4" />
+            </div>
+          </div>
+          <div className={`text-3xl font-extrabold tracking-tight ${
+            patientsWithAlertsCount > 0 ? 'text-rose-600' : 'text-emerald-700'
+          }`}>
+            {patientsWithAlertsCount}
+          </div>
+          <p className="text-xs text-slate-500 mt-1 font-medium">
+            {patientsWithAlertsCount > 0 ? 'Patients with active clinical alerts' : 'All recovery indicators normal'}
+          </p>
+        </div>
+
+        <div
           onClick={() => navigate('/clinician/verifications')}
-        />
+          className="rounded-3xl bg-white p-5 border border-slate-100 shadow-[0_4px_24px_-4px_rgba(17,24,39,0.06)] hover:border-slate-300 transition-all cursor-pointer group"
+        >
+          <div className="flex items-center justify-between mb-3">
+            <span className="text-xs font-semibold uppercase tracking-wider text-slate-400">Verifications</span>
+            <div className="w-8 h-8 rounded-full bg-teal-50 flex items-center justify-center text-teal-700 group-hover:bg-teal-100 transition-colors">
+              <FileCheck className="w-4 h-4" />
+            </div>
+          </div>
+          <div className="text-3xl font-extrabold text-on-surface tracking-tight">{pendingVerifications.length}</div>
+          <p className="text-xs text-slate-500 mt-1 font-medium">
+            {pendingVerifications.length > 0 ? 'Activity reports awaiting review' : 'All requested reports signed off'}
+          </p>
+        </div>
       </div>
 
       {/* ─── A. Needs Attention (High-Priority Clinical Alerts) ───────────── */}
-      <section className="space-y-3">
+      <section className="space-y-3.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="w-2.5 h-2.5 rounded-full bg-rose-600 animate-pulse" />
-            <h2 className="text-base font-bold text-navy-900">Needs Attention</h2>
+            <h2 className="text-base font-bold text-on-surface">Needs Immediate Attention</h2>
           </div>
           <span className="text-xs font-semibold text-rose-600">
-            {highPriorityAlerts.length} urgent review{highPriorityAlerts.length !== 1 ? 's' : ''}
+            {highPriorityAlerts.length} urgent {highPriorityAlerts.length === 1 ? 'alert' : 'alerts'}
           </span>
         </div>
 
         {highPriorityAlerts.length === 0 ? (
-          <Card className="p-5 bg-white text-center text-xs text-slate-500 flex items-center justify-center gap-2">
+          <div className="rounded-3xl bg-white p-6 border border-slate-100 shadow-[0_4px_24px_-4px_rgba(17,24,39,0.06)] text-center flex items-center justify-center gap-2 text-xs text-slate-500 font-medium">
             <CheckCircle2 className="w-4 h-4 text-emerald-500 shrink-0" />
             <span>No urgent alerts requiring immediate clinical attention. All assigned patients are stable.</span>
-          </Card>
+          </div>
         ) : (
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             {highPriorityAlerts.map((alert) => {
               const patientName = getPatientName(alert.patient_id);
               const isAcknowledged = alert.status === 'acknowledged';
 
               return (
-                <Card
+                <div
                   key={alert.id}
-                  className="p-4 bg-white border-l-4 border-l-rose-500 shadow-soft flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  className="rounded-3xl bg-white p-5 border-l-4 border-l-rose-500 border-y border-r border-slate-100 shadow-[0_4px_24px_-4px_rgba(17,24,39,0.06)] flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                 >
-                  <div className="space-y-1 min-w-0">
+                  <div className="space-y-1.5 min-w-0">
                     <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-xs font-bold text-navy-900 truncate">{patientName}</span>
-                      <Badge variant="error" size="sm">
+                      <div className="w-7 h-7 rounded-full bg-rose-100 text-rose-800 font-bold text-xs flex items-center justify-center shrink-0">
+                        {patientName.charAt(0)}
+                      </div>
+                      <span className="text-sm font-bold text-on-surface truncate">{patientName}</span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold uppercase tracking-wider">
                         High Priority
-                      </Badge>
-                      <Badge variant={isAcknowledged ? 'neutral' : 'warning'} size="sm">
-                        {isAcknowledged ? 'Acknowledged' : 'New'}
-                      </Badge>
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-slate-100 text-slate-600 text-[10px] font-semibold">
+                        {isAcknowledged ? 'Acknowledged' : 'New Alert'}
+                      </span>
                     </div>
 
-                    <p className="text-xs text-rose-700 font-medium leading-relaxed">
+                    <p className="text-xs sm:text-sm text-slate-700 font-medium leading-relaxed pl-9">
                       {alert.reason}
                     </p>
 
-                    <p className="text-[11px] text-slate-400 flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
+                    <p className="text-[11px] text-slate-400 flex items-center gap-1.5 pl-9">
+                      <Clock className="w-3.5 h-3.5" />
                       Reported {formatTime(alert.created_at)}
                     </p>
                   </div>
 
-                  <div className="shrink-0 flex items-center gap-2">
-                    <Button
-                      size="sm"
-                      variant="danger"
+                  <div className="shrink-0 sm:self-center pl-9 sm:pl-0">
+                    <button
                       onClick={() => navigate(`/clinician/patients/${alert.patient_id}`)}
+                      className="px-4 py-2 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-semibold text-xs shadow-md shadow-rose-600/20 transition-all active:scale-95"
                     >
                       Review Alert
-                    </Button>
+                    </button>
                   </div>
-                </Card>
+                </div>
               );
             })}
           </div>
@@ -335,11 +377,11 @@ export const ClinicianDashboard: React.FC = () => {
       </section>
 
       {/* ─── B. Pending Verification Requests ─────────────────────────────── */}
-      <section className="space-y-3">
+      <section className="space-y-3.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <FileCheck className="w-4 h-4 text-teal-calm" />
-            <h2 className="text-base font-bold text-navy-900">Pending Verification</h2>
+            <FileCheck className="w-4 h-4 text-primary" />
+            <h2 className="text-base font-bold text-on-surface">Pending Verification</h2>
           </div>
           <span className="text-xs font-semibold text-slate-500">
             {pendingVerifications.length} awaiting sign-off
@@ -347,43 +389,47 @@ export const ClinicianDashboard: React.FC = () => {
         </div>
 
         {pendingVerifications.length === 0 ? (
-          <Card className="p-5 bg-white text-center text-xs text-slate-500 flex items-center justify-center gap-2">
-            <CheckCircle2 className="w-4 h-4 text-teal-calm shrink-0" />
+          <div className="rounded-3xl bg-white p-6 border border-slate-100 shadow-[0_4px_24px_-4px_rgba(17,24,39,0.06)] text-center flex items-center justify-center gap-2 text-xs text-slate-500 font-medium">
+            <CheckCircle2 className="w-4 h-4 text-primary shrink-0" />
             <span>No recovery activity reports currently awaiting doctor review.</span>
-          </Card>
+          </div>
         ) : (
-          <div className="space-y-2.5">
+          <div className="space-y-3">
             {pendingVerifications.map((v) => {
               const patientName = getPatientName(v.patient_id);
               return (
-                <Card
+                <div
                   key={v.id}
-                  className="p-4 bg-white border-l-4 border-l-teal-calm shadow-soft flex flex-col sm:flex-row sm:items-center justify-between gap-3"
+                  className="rounded-3xl bg-white p-5 border-l-4 border-l-primary border-y border-r border-slate-100 shadow-[0_4px_24px_-4px_rgba(17,24,39,0.06)] flex flex-col sm:flex-row sm:items-center justify-between gap-4"
                 >
-                  <div className="space-y-1 min-w-0">
+                  <div className="space-y-1.5 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className="text-xs font-bold text-navy-900 truncate">{patientName}</span>
-                      <Badge variant="warning" size="sm">
-                        Pending Review
-                      </Badge>
+                      <div className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center shrink-0">
+                        {patientName.charAt(0)}
+                      </div>
+                      <span className="text-sm font-bold text-on-surface truncate">{patientName}</span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200 text-[10px] font-bold">
+                        Pending Sign-off
+                      </span>
                     </div>
-                    <p className="text-xs text-slate-700 font-medium">
+                    <p className="text-xs sm:text-sm text-slate-700 font-medium pl-9">
                       Doctor-Verified Recovery Activity Report requested
                     </p>
-                    <p className="text-[11px] text-slate-400 flex items-center gap-1">
-                      <Clock className="w-3 h-3" />
+                    <p className="text-[11px] text-slate-400 flex items-center gap-1.5 pl-9">
+                      <Clock className="w-3.5 h-3.5" />
                       Submitted {formatTime(v.requested_at)}
                     </p>
                   </div>
 
-                  <Button
-                    size="sm"
-                    variant="primary"
-                    onClick={() => navigate('/clinician/verifications')}
-                  >
-                    Review Request
-                  </Button>
-                </Card>
+                  <div className="shrink-0 sm:self-center pl-9 sm:pl-0">
+                    <button
+                      onClick={() => navigate('/clinician/verifications')}
+                      className="px-4 py-2 rounded-full bg-primary hover:bg-primary/90 text-white font-semibold text-xs shadow-md shadow-primary/20 transition-all active:scale-95"
+                    >
+                      Review Request
+                    </button>
+                  </div>
+                </div>
               );
             })}
           </div>
@@ -391,23 +437,23 @@ export const ClinicianDashboard: React.FC = () => {
       </section>
 
       {/* ─── D. Recent Activity Stream ────────────────────────────────────── */}
-      <section className="space-y-3">
+      <section className="space-y-3.5">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Activity className="w-4 h-4 text-slate-500" />
-            <h2 className="text-base font-bold text-navy-900">Recent Activity</h2>
+            <h2 className="text-base font-bold text-on-surface">Recent Activity Stream</h2>
           </div>
-          <span className="text-xs text-slate-400">
+          <span className="text-xs text-slate-400 font-medium">
             Across authorized patients
           </span>
         </div>
 
         {recentEvents.length === 0 ? (
-          <Card className="p-6 bg-white text-center text-xs text-slate-400">
+          <div className="rounded-3xl bg-white p-6 border border-slate-100 text-center text-xs text-slate-400">
             No recent activity recorded yet.
-          </Card>
+          </div>
         ) : (
-          <div className="bg-white rounded-2xl border border-slate-200/80 shadow-soft divide-y divide-slate-100 overflow-hidden">
+          <div className="bg-white rounded-3xl border border-slate-100 shadow-[0_4px_24px_-4px_rgba(17,24,39,0.06)] divide-y divide-slate-100 overflow-hidden">
             {recentEvents.map((event) => {
               const Icon =
                 event.type === 'checkin'
@@ -420,45 +466,45 @@ export const ClinicianDashboard: React.FC = () => {
                 event.type === 'checkin'
                   ? 'bg-amber-50 text-amber-600'
                   : event.type === 'session'
-                  ? 'bg-teal-light text-teal-calm'
-                  : 'bg-blue-50 text-blue-600';
+                  ? 'bg-sky-50 text-sky-600'
+                  : 'bg-purple-50 text-purple-600';
 
               return (
                 <div
                   key={event.id}
                   onClick={() => navigate(`/clinician/patients/${event.patientId}`)}
-                  className="p-3.5 sm:p-4 hover:bg-slate-50/80 transition-colors flex items-center justify-between gap-3 cursor-pointer"
+                  className="p-4 hover:bg-slate-50/80 transition-colors flex items-center justify-between gap-3 cursor-pointer group"
                 >
-                  <div className="flex items-start gap-3 min-w-0">
-                    <div className={`w-8 h-8 rounded-lg ${iconBg} flex items-center justify-center shrink-0`}>
+                  <div className="flex items-start gap-3.5 min-w-0">
+                    <div className={`w-9 h-9 rounded-full ${iconBg} flex items-center justify-center shrink-0`}>
                       <Icon className="w-4 h-4" />
                     </div>
 
-                    <div className="min-w-0 space-y-0.5">
+                    <div className="min-w-0 space-y-1">
                       <div className="flex items-center gap-2">
-                        <span className="text-xs font-bold text-navy-900 truncate">
+                        <span className="text-xs sm:text-sm font-bold text-on-surface truncate group-hover:text-primary transition-colors">
                           {event.patientName}
                         </span>
-                        <span className="text-[11px] text-slate-500 font-medium">
+                        <span className="text-[11px] text-slate-400 font-medium">
                           • {event.title}
                         </span>
                         {event.badge && (
-                          <Badge variant="error" size="sm">
+                          <span className="px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 text-[10px] font-bold">
                             {event.badge}
-                          </Badge>
+                          </span>
                         )}
                       </div>
-                      <p className="text-xs text-slate-600 truncate">
+                      <p className="text-xs text-slate-600 truncate font-medium">
                         {event.detail}
                       </p>
                     </div>
                   </div>
 
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-[11px] text-slate-400 hidden sm:inline">
+                  <div className="flex items-center gap-2.5 shrink-0">
+                    <span className="text-[11px] text-slate-400 hidden sm:inline font-medium">
                       {formatTime(event.timestamp)}
                     </span>
-                    <ChevronRight className="w-4 h-4 text-slate-300" />
+                    <ChevronRight className="w-4 h-4 text-slate-300 group-hover:text-primary group-hover:translate-x-0.5 transition-all" />
                   </div>
                 </div>
               );
@@ -467,10 +513,10 @@ export const ClinicianDashboard: React.FC = () => {
         )}
 
         {/* Link to Patients Directory */}
-        <div className="pt-1 text-center">
+        <div className="pt-2 text-center">
           <button
             onClick={() => navigate('/clinician/patients')}
-            className="inline-flex items-center gap-1.5 text-xs font-semibold text-teal-hover hover:text-navy-900 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full text-xs font-semibold text-primary hover:bg-primary-fixed/20 transition-all"
           >
             <span>Open complete patient directory</span>
             <ArrowRight className="w-3.5 h-3.5" />

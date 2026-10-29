@@ -17,10 +17,9 @@ import {
   Info,
   ChevronRight,
   Eye,
+  Clock,
 } from 'lucide-react';
-import { Card } from '../components/common/Card';
 import { Button } from '../components/common/Button';
-import { Badge } from '../components/common/Badge';
 import { Modal } from '../components/common/Modal';
 import { SessionSummary } from '../components/common/SessionSummary';
 import { repository } from '../lib/supabase/repository';
@@ -481,34 +480,44 @@ export const ExerciseCoach: React.FC = () => {
   };
 
   return (
-    <div className="space-y-6 max-w-4xl mx-auto pb-12">
+    <div className="flex flex-col w-full max-w-2xl mx-auto space-y-5 pb-8">
       {/* Top Header */}
-      <div className="flex items-center justify-between pb-3 border-b border-slate-200/60">
+      <div className="flex items-center justify-between pt-1">
         <button
           onClick={() => {
             stopCameraStream();
             navigate('/');
           }}
-          className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-navy-900 transition-colors"
+          className="flex items-center gap-1.5 text-xs font-semibold text-on-surface-variant hover:text-on-surface transition-colors"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Home</span>
         </button>
+
+        <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-primary-fixed/40">
+          <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+          <span className="text-[11px] font-bold text-on-primary-fixed-variant uppercase tracking-wider">
+            {cameraStatus === 'active' ? 'Live Sensor' : 'Sensor Ready'}
+          </span>
+        </div>
       </div>
 
-      <div>
-        <h1 className="text-2xl font-bold text-navy-900 tracking-tight">
+      <div className="flex flex-col gap-0.5">
+        <h1 className="text-2xl sm:text-3xl font-bold text-on-surface tracking-tight">
           {exercise?.name || 'Seated Knee Extension'}
         </h1>
-        <p className="text-sm text-slate-500 mt-1">
-          {exercise?.instructions ||
-            'Sit upright in a chair with feet flat. Straighten your leg smoothly and lower it back down.'}
+        <p className="text-xs sm:text-sm text-on-surface-variant">
+          Daily Mobility & Strengthening • Set 1 of 3
         </p>
       </div>
 
-      {/* Camera Viewport & Overlays */}
-      <Card className="p-2 sm:p-3 relative overflow-hidden bg-navy-950 text-white rounded-2xl shadow-md border-navy-800">
-        <div className="relative aspect-[4/3] max-h-[55vh] sm:max-h-[500px] w-full rounded-xl overflow-hidden bg-navy-900 flex items-center justify-center">
+      {/* Camera Viewport & Overlays (Stitch Clinical Kineticism Container) */}
+      <div className="relative w-full rounded-[28px] overflow-hidden shadow-xl bg-navy-950 text-white border border-surface-container-high/40">
+        {/* Soft Background Luma Blobs */}
+        <div className="absolute -top-12 -left-12 w-48 h-48 rounded-full bg-primary-container/20 blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-10 -right-10 w-48 h-48 rounded-full bg-tertiary-container/20 blur-3xl pointer-events-none" />
+
+        <div className="relative aspect-[4/3] max-h-[500px] w-full overflow-hidden flex items-center justify-center">
           {/* Live Video Feed */}
           <video
             ref={videoRef}
@@ -530,46 +539,42 @@ export const ExerciseCoach: React.FC = () => {
 
           {/* Pre-Camera / Initial State Explanation & Privacy */}
           {cameraStatus === 'idle' && (
-            <div className="text-center p-6 space-y-3.5 z-10 max-w-sm mx-auto">
-              <div className="w-14 h-14 rounded-full bg-navy-800 text-teal-calm mx-auto flex items-center justify-center border border-navy-700 shadow-inner">
-                <Camera className="w-7 h-7" />
+            <div className="text-center p-6 space-y-4 z-10 max-w-sm mx-auto">
+              <div className="w-16 h-16 rounded-full bg-surface-container-low/20 text-primary-container mx-auto flex items-center justify-center border border-white/10 shadow-inner">
+                <Camera className="w-8 h-8" />
               </div>
 
               <div>
-                <h3 className="text-base font-semibold text-white">
-                  Exercise camera
+                <h3 className="text-lg font-bold text-white">
+                  Exercise Camera
                 </h3>
-                <p className="text-xs text-slate-300 mt-1 leading-relaxed">
-                  Position your device so your leg and chair are in view.
+                <p className="text-xs text-white/80 mt-1 leading-relaxed">
+                  Position your device so your leg and chair are in view for real-time motion guidance.
                 </p>
               </div>
 
               {/* Privacy Notice */}
-              <div className="bg-navy-900/90 border border-navy-700 rounded-xl p-2.5 text-left flex items-start gap-2">
-                <ShieldCheck className="w-4 h-4 text-emerald-400 shrink-0 mt-0.5" />
-                <p className="text-[11px] text-slate-300 leading-tight">
-                  Camera stream runs privately on your device. No video is recorded or stored.
+              <div className="bg-white/10 backdrop-blur-md border border-white/10 rounded-2xl p-3 text-left flex items-start gap-2.5">
+                <ShieldCheck className="w-4 h-4 text-primary-fixed shrink-0 mt-0.5" />
+                <p className="text-[11px] text-white/90 leading-tight">
+                  Camera frames are analyzed entirely on your device. No raw video or pictures are stored.
                 </p>
               </div>
 
-              <div className="pt-1 flex flex-col gap-2">
-                <Button
-                  fullWidth
-                  variant="primary"
+              <div className="pt-2 flex flex-col gap-2.5">
+                <button
                   onClick={handleStartCamera}
-                  icon={<Camera className="w-4 h-4" />}
+                  className="w-full h-[52px] rounded-full bg-primary-container text-on-primary-container font-bold text-sm flex items-center justify-center gap-2 shadow-[0_8px_20px_-4px_rgba(22,168,120,0.35)] hover:brightness-105 active:scale-[0.98] transition-all"
                 >
-                  Start exercise
-                </Button>
-                <Button
-                  fullWidth
-                  size="sm"
-                  variant="outline"
+                  <Camera className="w-4 h-4" />
+                  <span>Start Camera Session</span>
+                </button>
+                <button
                   onClick={handleStartDemoMode}
-                  className="text-slate-300 border-navy-700 hover:bg-navy-800"
+                  className="w-full h-11 rounded-full bg-white/10 text-white font-medium text-xs hover:bg-white/20 transition-all border border-white/20"
                 >
-                  Practice without camera
-                </Button>
+                  Practice Without Camera
+                </button>
               </div>
             </div>
           )}
@@ -577,14 +582,14 @@ export const ExerciseCoach: React.FC = () => {
           {/* Requesting Permission / Model Loading Spinner */}
           {(cameraStatus === 'requesting_permission' || modelStatus === 'loading') && (
             <div className="text-center p-6 space-y-3 z-10">
-              <RefreshCw className="w-8 h-8 text-teal-calm animate-spin mx-auto" />
+              <RefreshCw className="w-8 h-8 text-primary-fixed animate-spin mx-auto" />
               <div>
                 <h3 className="text-sm font-semibold text-white">
                   {cameraStatus === 'requesting_permission'
                     ? 'Requesting Camera Permission...'
                     : 'Loading MediaPipe Pose Model...'}
                 </h3>
-                <p className="text-xs text-slate-muted max-w-xs mx-auto mt-1">
+                <p className="text-xs text-white/70 max-w-xs mx-auto mt-1">
                   {cameraStatus === 'requesting_permission'
                     ? 'Please accept the camera permission in your browser.'
                     : 'Preparing on-device pose detection...'}
@@ -595,119 +600,55 @@ export const ExerciseCoach: React.FC = () => {
 
           {/* Permission Denied UI */}
           {cameraStatus === 'permission_denied' && (
-            <div className="text-center p-6 space-y-3 z-10 bg-navy-900/95 max-w-sm mx-auto">
-              <div className="w-12 h-12 rounded-full bg-status-warning-bg text-status-warning mx-auto flex items-center justify-center">
+            <div className="text-center p-6 space-y-3 z-10 bg-navy-950/95 max-w-sm mx-auto rounded-3xl">
+              <div className="w-12 h-12 rounded-full bg-amber-500/20 text-amber-300 mx-auto flex items-center justify-center">
                 <VideoOff className="w-6 h-6" />
               </div>
               <div>
                 <h3 className="text-sm font-semibold text-white">Camera Access Denied</h3>
-                <p className="text-xs text-slate-muted mt-1 leading-relaxed">
+                <p className="text-xs text-white/70 mt-1 leading-relaxed">
                   {cameraErrorMessage}
                 </p>
               </div>
               <div className="pt-2 flex flex-col gap-2">
-                <Button
-                  size="sm"
-                  variant="primary"
+                <button
                   onClick={handleStartCamera}
-                  icon={<RefreshCw className="w-3.5 h-3.5" />}
+                  className="w-full h-11 rounded-full bg-primary-container text-on-primary-container font-semibold text-xs flex items-center justify-center gap-1.5"
                 >
-                  Retry Camera Permission
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
+                  <RefreshCw className="w-3.5 h-3.5" />
+                  <span>Retry Camera Permission</span>
+                </button>
+                <button
                   onClick={handleStartDemoMode}
-                  className="text-slate-300 border-navy-700"
+                  className="w-full h-11 rounded-full bg-white/10 text-white font-medium text-xs hover:bg-white/20 transition-all"
                 >
                   Use Guided Motion Mode
-                </Button>
+                </button>
               </div>
             </div>
           )}
 
-          {/* Camera Unavailable UI */}
-          {cameraStatus === 'camera_unavailable' && (
-            <div className="text-center p-6 space-y-3 z-10 bg-navy-900/95 max-w-sm mx-auto">
-              <div className="w-12 h-12 rounded-full bg-rose-900/40 text-rose-400 mx-auto flex items-center justify-center">
-                <AlertTriangle className="w-6 h-6" />
-              </div>
-              <div>
-                <h3 className="text-sm font-semibold text-white">Camera Unavailable</h3>
-                <p className="text-xs text-slate-muted mt-1 leading-relaxed">
-                  {cameraErrorMessage}
-                </p>
-              </div>
-              <div className="pt-2 flex flex-col gap-2">
-                <Button
-                  size="sm"
-                  variant="primary"
-                  onClick={handleStartDemoMode}
-                >
-                  Continue in Guided Mode
-                </Button>
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={handleStartCamera}
-                  className="text-slate-300 border-navy-700"
-                >
-                  Retry Device Detection
-                </Button>
-              </div>
-            </div>
-          )}
-
-          {/* Model Loading Failure UI */}
-          {modelStatus === 'failed' && (
-            <div className="absolute top-3 left-3 right-3 bg-amber-900/80 border border-amber-600 rounded-lg p-2.5 text-xs text-amber-200 flex items-center justify-between z-20">
-              <div className="flex items-center gap-2">
-                <AlertTriangle className="w-4 h-4 text-amber-300 shrink-0" />
-                <span>MediaPipe pose tracking unavailable. Running in guided motion mode.</span>
-              </div>
-              <Button size="sm" variant="outline" onClick={handleStartDemoMode} className="text-xs py-0.5 px-2 h-auto text-amber-100 border-amber-400">
-                Acknowledge
-              </Button>
-            </div>
-          )}
-
-          {/* Live In-Session HUD Overlays */}
+          {/* Live In-Session Stitch HUD Overlays */}
           {cameraStatus === 'active' && (
             <>
-              {/* Top HUD bar */}
-              <div className="absolute top-3 left-3 right-3 flex justify-between items-start pointer-events-none z-10">
-                {/* Joint Angle Readout */}
-                <div className="bg-navy-950/85 backdrop-blur-sm border border-navy-700/70 rounded-xl px-3 py-1.5 text-left shadow">
-                  <p className="text-[10px] text-slate-subtle uppercase font-semibold">Knee Angle</p>
-                  <p className="text-lg font-bold text-teal-calm">
-                    {repState.currentAngle}°
-                  </p>
-                  <p className="text-[9px] text-slate-muted uppercase tracking-wider font-semibold">
-                    {repState.phase.replace('_', ' ')}
-                  </p>
+              {/* Floating Top Status Feedback Pill */}
+              <div className="absolute top-4 inset-x-4 flex items-center justify-between pointer-events-none z-10">
+                <div className="px-3.5 py-1.5 rounded-full bg-white/85 backdrop-blur-md shadow-sm flex items-center gap-2 border border-white/60">
+                  <CheckCircle2 className="w-4 h-4 text-primary" />
+                  <span className="text-xs font-semibold text-on-surface">
+                    {repState.feedbackMessage || 'Great smooth movement'}
+                  </span>
                 </div>
 
-                {/* Rep Counter Readout */}
-                <div className="bg-navy-950/85 backdrop-blur-sm border border-navy-700/70 rounded-xl px-3 py-1.5 text-center shadow">
-                  <p className="text-[10px] text-slate-subtle uppercase font-semibold">Repetitions</p>
-                  <p className="text-lg font-bold text-white">
-                    <span className="text-teal-calm">{repState.repetitions}</span> / {repConfig.targetReps}
-                  </p>
-                </div>
-
-                {/* Workout Timer */}
-                <div className="bg-navy-950/85 backdrop-blur-sm border border-navy-700/70 rounded-xl px-3 py-1.5 text-right shadow">
-                  <p className="text-[10px] text-slate-subtle uppercase font-semibold">Session Timer</p>
-                  <p className="text-lg font-bold text-white font-mono">
-                    {Math.floor(elapsedSeconds / 60)}:
-                    {(elapsedSeconds % 60).toString().padStart(2, '0')}
-                  </p>
+                <div className="px-3 py-1.5 rounded-full bg-black/40 backdrop-blur-md text-white font-mono text-xs font-bold border border-white/10">
+                  {Math.floor(elapsedSeconds / 60)}:
+                  {(elapsedSeconds % 60).toString().padStart(2, '0')}
                 </div>
               </div>
 
               {/* Low Quality / No Pose Detection Warning */}
               {detectionQuality === 'no_pose' && !isManualDemoMode && (
-                <div className="absolute top-16 left-3 right-3 bg-amber-950/90 border border-amber-600/70 rounded-xl px-3 py-2 text-center pointer-events-none z-10">
+                <div className="absolute top-16 left-4 right-4 bg-amber-950/90 border border-amber-600/70 rounded-2xl px-3 py-2 text-center pointer-events-none z-10">
                   <p className="text-xs font-semibold text-amber-200 flex items-center justify-center gap-1.5">
                     <AlertTriangle className="w-4 h-4 text-amber-400" />
                     <span>No person detected. Position chair 5–7 feet back with your leg visible.</span>
@@ -717,91 +658,158 @@ export const ExerciseCoach: React.FC = () => {
 
               {/* Paused Overlay Badge */}
               {isPaused && (
-                <div className="absolute inset-0 bg-navy-950/60 backdrop-blur-sm flex items-center justify-center z-20">
-                  <div className="bg-navy-900 border border-navy-700 rounded-2xl p-4 text-center space-y-2 shadow-2xl">
-                    <Badge variant="warning" icon={<Pause className="w-3.5 h-3.5" />}>
+                <div className="absolute inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-20">
+                  <div className="bg-white rounded-3xl p-5 text-center space-y-2 shadow-2xl text-on-surface max-w-xs">
+                    <span className="text-xs font-bold px-3 py-1 rounded-full bg-amber-100 text-amber-900 inline-block">
                       Session Paused
-                    </Badge>
-                    <p className="text-xs text-slate-muted">Take a breath. Press resume when ready to continue.</p>
+                    </span>
+                    <p className="text-xs text-on-surface-variant">
+                      Take a quiet breath. Press resume when ready to continue.
+                    </p>
                   </div>
                 </div>
               )}
 
-              {/* Bottom Live Feedback Bar */}
-              <div className="absolute bottom-3 left-3 right-3 bg-navy-950/90 backdrop-blur-sm border border-teal-calm/40 rounded-xl px-3.5 py-2 text-center pointer-events-none z-10">
-                <p className="text-xs font-medium text-teal-light">
-                  {repState.feedbackMessage}
-                </p>
+              {/* Floating Bottom Telemetry (Rep Count + Angle Gauge) */}
+              <div className="absolute bottom-4 inset-x-4 flex items-end justify-between z-10 pointer-events-none">
+                {/* Repetition Count Card */}
+                <div className="flex flex-col bg-white/85 backdrop-blur-lg px-4 py-3 rounded-2xl shadow-md min-w-0 border border-white/60">
+                  <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">
+                    Repetition Count
+                  </span>
+                  <div className="flex items-baseline gap-1 mt-0.5">
+                    <span className="text-3xl sm:text-4xl font-bold text-on-surface">
+                      {repState.repetitions}
+                    </span>
+                    <span className="text-sm font-bold text-on-surface-variant">
+                      / {repConfig.targetReps}
+                    </span>
+                  </div>
+                </div>
+
+                {/* Circular SVG Angle Gauge */}
+                <div className="flex items-center gap-3 bg-white/85 backdrop-blur-lg px-4 py-3 rounded-2xl shadow-md border border-white/60">
+                  <div className="relative w-12 h-12 flex items-center justify-center">
+                    <svg className="w-12 h-12 -rotate-90" viewBox="0 0 56 56">
+                      <circle
+                        cx="28"
+                        cy="28"
+                        fill="none"
+                        r="23"
+                        stroke="#bccac0"
+                        strokeOpacity="0.35"
+                        strokeWidth="5"
+                      />
+                      <circle
+                        cx="28"
+                        cy="28"
+                        fill="none"
+                        r="23"
+                        stroke="#16a878"
+                        strokeDasharray="144.5"
+                        strokeDashoffset={Math.max(0, 144.5 - (repState.currentAngle / 90) * 144.5)}
+                        strokeLinecap="round"
+                        strokeWidth="5"
+                        className="transition-all duration-150"
+                      />
+                    </svg>
+                    <div className="absolute inset-0 flex flex-col items-center justify-center">
+                      <span className="text-xs font-bold text-on-surface leading-none">
+                        {repState.currentAngle}°
+                      </span>
+                    </div>
+                  </div>
+                  <div className="flex flex-col">
+                    <span className="text-[10px] font-bold text-on-surface-variant uppercase tracking-wider">
+                      Angle
+                    </span>
+                    <span className="text-xs font-semibold text-primary">
+                      Target 90°
+                    </span>
+                  </div>
+                </div>
               </div>
             </>
           )}
         </div>
+      </div>
 
-        {/* Workout Control Bar */}
-        {cameraStatus === 'active' && (
-          <div className="mt-3 flex gap-2">
-            {!isWorkoutActive ? (
-              <div className="flex flex-col sm:flex-row gap-2 w-full">
-                <Button
-                  fullWidth
-                  size="lg"
-                  variant="primary"
-                  onClick={handleStartWorkout}
-                  icon={<Play className="w-5 h-5 fill-current" />}
-                  className="flex-1"
-                >
-                  Start exercise
-                </Button>
-                <Button
-                  size="lg"
-                  variant="outline"
-                  onClick={() => {
-                    stopCameraStream();
-                    setCameraStatus('idle');
-                    setIsManualDemoMode(false);
-                  }}
-                  className="text-slate-300 border-navy-700 hover:bg-navy-800"
-                >
-                  Exit camera
-                </Button>
-              </div>
-            ) : (
-              <>
-                {/* Pause / Resume Button */}
-                {!isPaused ? (
-                  <Button
-                    variant="outline"
-                    className="flex-1 text-slate-200 border-navy-700 hover:bg-navy-800"
-                    onClick={handlePauseWorkout}
-                    icon={<Pause className="w-4 h-4" />}
-                  >
-                    Pause
-                  </Button>
-                ) : (
-                  <Button
-                    variant="primary"
-                    className="flex-1"
-                    onClick={handleResumeWorkout}
-                    icon={<Play className="w-4 h-4 fill-current" />}
-                  >
-                    Resume
-                  </Button>
-                )}
-
-                {/* Finish Session Button */}
-                <Button
-                  variant="primary"
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700 border-none"
-                  onClick={() => handleStopWorkout('completed')}
-                  icon={<CheckCircle2 className="w-4 h-4" />}
-                >
-                  Finish session
-                </Button>
-              </>
-            )}
+      {/* Exercise Instructions & Progress Card */}
+      <div className="flex flex-col gap-3 bg-white p-5 sm:p-6 rounded-3xl shadow-[0_4px_24px_-4px_rgba(17,24,39,0.06)] border border-surface-container-high/60">
+        <div className="flex items-start justify-between gap-2">
+          <div className="flex flex-col min-w-0">
+            <span className="text-base sm:text-lg font-bold text-on-surface truncate">
+              {exercise?.name || 'Seated Knee Extension'}
+            </span>
+            <span className="text-xs font-semibold text-primary">
+              Set 1 of 3 • 10 reps each
+            </span>
           </div>
-        )}
-      </Card>
+          <div className="flex items-center gap-1 bg-surface-container-low px-2.5 py-1 rounded-full shrink-0">
+            <Clock className="w-3.5 h-3.5 text-primary" />
+            <span className="text-xs font-semibold text-on-surface">2s hold</span>
+          </div>
+        </div>
+
+        <p className="text-xs text-on-surface-variant leading-relaxed">
+          Gently extend your leg until horizontal, hold for 2s, then lower slowly. Keep your posture tall and shoulders relaxed.
+        </p>
+
+        {/* Rep Progress Bar */}
+        <div className="w-full bg-surface-container-high h-1.5 rounded-full overflow-hidden mt-1">
+          <div
+            className="bg-primary h-full rounded-full transition-all duration-300"
+            style={{ width: `${Math.min(100, (repState.repetitions / repConfig.targetReps) * 100)}%` }}
+          />
+        </div>
+      </div>
+
+      {/* Interactive Workout Action Buttons */}
+      {cameraStatus === 'active' && (
+        <div className="flex items-center gap-3 pt-1">
+          {!isWorkoutActive ? (
+            <button
+              onClick={handleStartWorkout}
+              className="flex-1 h-[52px] rounded-full bg-primary-container text-on-primary-container font-bold text-base flex items-center justify-center gap-2 shadow-[0_8px_20px_-4px_rgba(22,168,120,0.35)] active:scale-[0.98] transition-transform"
+            >
+              <Play className="w-5 h-5 fill-current" />
+              <span>Begin Repetitions</span>
+            </button>
+          ) : (
+            <>
+              <button
+                onClick={isPaused ? handleResumeWorkout : handlePauseWorkout}
+                className="flex-1 h-[52px] rounded-full bg-inverse-surface text-inverse-on-surface font-semibold text-sm sm:text-base flex items-center justify-center gap-2 shadow-md active:scale-[0.98] transition-transform"
+              >
+                {isPaused ? <Play className="w-4 h-4 fill-current" /> : <Pause className="w-4 h-4" />}
+                <span>{isPaused ? 'Resume Session' : 'Pause Session'}</span>
+              </button>
+
+              <button
+                onClick={() => {
+                  setRepState((prev) => ({
+                    ...prev,
+                    repetitions: prev.repetitions + 1,
+                    feedbackMessage: 'Manual repetition logged',
+                  }));
+                }}
+                className="h-[52px] px-5 rounded-full bg-surface-container text-on-surface font-semibold text-xs sm:text-sm flex items-center justify-center active:scale-[0.98] transition-transform"
+                title="Tap to manually log a rep"
+              >
+                +1 Rep
+              </button>
+
+              <button
+                onClick={() => handleStopWorkout('completed')}
+                className="h-[52px] px-6 rounded-full bg-surface-container-high text-on-surface font-semibold text-sm sm:text-base flex items-center justify-center active:scale-[0.98] transition-transform hover:bg-surface-container-highest"
+              >
+                Finish
+              </button>
+            </>
+          )}
+        </div>
+      )}
+
 
       {/* Safety Notice */}
       <div className="p-3 bg-warm-subtle rounded-xl border border-warm-border text-xs text-slate-muted flex items-start gap-2.5">

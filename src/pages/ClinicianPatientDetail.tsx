@@ -215,76 +215,76 @@ export const ClinicianPatientDetail: React.FC = () => {
       {/* Top navigation */}
       <button
         onClick={() => navigate('/clinician/patients')}
-        className="flex items-center gap-1.5 text-xs font-semibold text-slate-500 hover:text-navy-900 transition-colors"
+        className="inline-flex items-center gap-2 px-3.5 py-1.5 rounded-full bg-white border border-slate-200 text-xs font-semibold text-slate-600 hover:text-on-surface hover:border-slate-300 transition-all shadow-sm"
       >
-        <ArrowLeft className="w-4 h-4" />
+        <ArrowLeft className="w-3.5 h-3.5" />
         <span>Back to Patients</span>
       </button>
 
       {/* Patient Header */}
-      <div className="bg-white p-5 rounded-2xl border border-slate-200/80 shadow-soft flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3.5">
-          <div className="w-11 h-11 rounded-xl bg-navy-900 text-white flex items-center justify-center font-bold text-base shrink-0">
+      <div className="bg-white p-6 rounded-3xl border border-slate-100 shadow-[0_4px_24px_-4px_rgba(17,24,39,0.06)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div className="flex items-center gap-4">
+          <div className="w-12 h-12 rounded-full bg-slate-100 text-slate-800 flex items-center justify-center font-bold text-lg shrink-0 border border-slate-200/60 shadow-sm">
             {patient?.full_name?.charAt(0) || 'P'}
           </div>
           <div>
             <div className="flex items-center gap-2">
-              <h1 className="text-lg font-bold text-navy-900">{patient?.full_name || 'Patient Chart'}</h1>
+              <h1 className="text-xl font-bold text-on-surface">{patient?.full_name || 'Patient Chart'}</h1>
               {unreviewedAlerts.length > 0 ? (
-                <Badge variant="error" size="sm">
-                  {unreviewedAlerts.length} alert{unreviewedAlerts.length > 1 ? 's' : ''}
-                </Badge>
+                <span className="px-2.5 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 text-[10px] font-bold">
+                  {unreviewedAlerts.length} {unreviewedAlerts.length > 1 ? 'Alerts' : 'Alert'}
+                </span>
               ) : (
-                <Badge variant="success" size="sm">
-                  On track
-                </Badge>
+                <span className="px-2.5 py-0.5 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200 text-[10px] font-bold">
+                  On Track
+                </span>
               )}
             </div>
-            <p className="text-xs text-slate-500 mt-0.5">
-              Protocol: <span className="text-navy-900 font-semibold">{plan?.title || 'Recovery Plan'}</span>
+            <p className="text-xs text-slate-500 mt-1 font-medium">
+              Protocol: <span className="text-on-surface font-semibold">{plan?.title || 'Recovery Plan'}</span>
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 text-xs text-slate-500">
-          <span>{completedSessions.length} completed sessions</span>
+        <div className="flex items-center gap-4 text-xs text-slate-500 font-medium bg-slate-50 px-4 py-2 rounded-full border border-slate-100 self-start sm:self-auto">
+          <span><strong className="text-on-surface">{completedSessions.length}</strong> sessions done</span>
           <span>•</span>
-          <span>Avg pain: {avgPainScore ? `${avgPainScore}/10` : 'None'}</span>
+          <span>Avg pain: <strong className="text-on-surface">{avgPainScore ? `${avgPainScore}/10` : 'None'}</strong></span>
         </div>
       </div>
 
       {/* 5 Section Tabs */}
-      <div className="flex gap-1.5 border-b border-slate-200 pb-2 text-xs overflow-x-auto no-scrollbar">
+      <div className="flex gap-2 overflow-x-auto pb-1 text-xs no-scrollbar">
         <button
           onClick={() => setActiveSection('plan')}
-          className={`px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`px-4 py-2 rounded-full font-semibold transition-all flex items-center gap-2 whitespace-nowrap ${
             activeSection === 'plan'
-              ? 'bg-navy-900 text-white'
-              : 'bg-white text-slate-600 hover:bg-slate-100'
+              ? 'bg-on-surface text-white shadow-sm'
+              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
           }`}
         >
           <BookOpen className="w-3.5 h-3.5" />
-          <span>Recovery plan</span>
+          <span>Recovery Plan</span>
         </button>
 
         <button
           onClick={() => setActiveSection('exercises')}
-          className={`px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`px-4 py-2 rounded-full font-semibold transition-all flex items-center gap-2 whitespace-nowrap ${
             activeSection === 'exercises'
-              ? 'bg-navy-900 text-white'
-              : 'bg-white text-slate-600 hover:bg-slate-100'
+              ? 'bg-on-surface text-white shadow-sm'
+              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
           }`}
         >
           <Activity className="w-3.5 h-3.5" />
-          <span>Exercise activity ({sessions.length})</span>
+          <span>Exercise Activity ({sessions.length})</span>
         </button>
 
         <button
           onClick={() => setActiveSection('checkins')}
-          className={`px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`px-4 py-2 rounded-full font-semibold transition-all flex items-center gap-2 whitespace-nowrap ${
             activeSection === 'checkins'
-              ? 'bg-navy-900 text-white'
-              : 'bg-white text-slate-600 hover:bg-slate-100'
+              ? 'bg-on-surface text-white shadow-sm'
+              : 'bg-white border border-slate-200 text-slate-600 hover:bg-slate-50'
           }`}
         >
           <ClipboardList className="w-3.5 h-3.5" />
@@ -293,29 +293,29 @@ export const ClinicianPatientDetail: React.FC = () => {
 
         <button
           onClick={() => setActiveSection('alerts')}
-          className={`px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`px-4 py-2 rounded-full font-semibold transition-all flex items-center gap-2 whitespace-nowrap ${
             activeSection === 'alerts'
-              ? 'bg-navy-900 text-white'
-              : 'bg-white text-slate-600 hover:bg-slate-100'
+              ? 'bg-rose-600 text-white shadow-sm'
+              : 'bg-white border border-slate-200 text-slate-600 hover:border-rose-300'
           }`}
         >
           <AlertTriangle className="w-3.5 h-3.5" />
           <span>Alerts ({alerts.length})</span>
           {unreviewedAlerts.length > 0 && (
-            <span className="w-2 h-2 rounded-full bg-rose-600" />
+            <span className="w-2 h-2 rounded-full bg-white animate-pulse" />
           )}
         </button>
 
         <button
           onClick={() => setActiveSection('verification')}
-          className={`px-3 py-1.5 rounded-lg font-semibold transition-colors flex items-center gap-1.5 ${
+          className={`px-4 py-2 rounded-full font-semibold transition-all flex items-center gap-2 whitespace-nowrap ${
             activeSection === 'verification'
-              ? 'bg-navy-900 text-white'
-              : 'bg-white text-slate-600 hover:bg-slate-100'
+              ? 'bg-primary text-white shadow-sm'
+              : 'bg-white border border-slate-200 text-slate-600 hover:border-primary'
           }`}
         >
           <FileCheck2 className="w-3.5 h-3.5" />
-          <span>Verification ({verifications.length})</span>
+          <span>Doctor Verification ({verifications.length})</span>
         </button>
       </div>
 

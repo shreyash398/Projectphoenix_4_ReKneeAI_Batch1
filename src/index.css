@@ -4,16 +4,19 @@
 
 @layer base {
   :root {
-    --bg-warm: #F8FAFC;
-    --text-navy: #0F172A;
-    --teal-calm: #0D9488;
-    --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+    --bg-surface: #fcf9f8;
+    --text-primary: #1c1b1b;
+    --primary-green: #16a878;
+    --primary-dark: #006c4b;
+    --recovery-purple: #712ae2;
+    --exercise-cyan: #087ea4;
+    --font-sans: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
   }
 
   html, body {
-    background-color: #F8FAFC;
-    color: #0F172A;
-    font-family: -apple-system, BlinkMacSystemFont, "SF Pro Display", "SF Pro Text", "Helvetica Neue", sans-serif;
+    background-color: #fcf9f8;
+    color: #1c1b1b;
+    font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "SF Pro Display", sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;

@@ -317,9 +317,9 @@ describe('Daily Check-in — Same-day detection logic', () => {
   }
 
   it('identifies two timestamps in the same calendar day as same-day', () => {
-    const today = new Date();
-    const laterToday = new Date(today.getTime() + 6 * 3600000); // + 6 hours
-    expect(isSameDay(today.toISOString(), laterToday.toISOString())).toBe(true);
+    const morning = new Date(2026, 9, 29, 9, 0);
+    const afternoon = new Date(2026, 9, 29, 15, 0); // + 6 hours on same calendar day
+    expect(isSameDay(morning.toISOString(), afternoon.toISOString())).toBe(true);
   });
 
   it('identifies timestamps 24 hours apart as different days', () => {

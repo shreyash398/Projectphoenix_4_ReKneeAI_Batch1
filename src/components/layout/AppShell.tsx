@@ -22,7 +22,7 @@ export const AppShell: React.FC = () => {
   }, []);
 
   return (
-    <div className="min-h-screen bg-warm-bg text-navy-900 flex font-sans antialiased">
+    <div className="min-h-screen bg-surface text-on-surface flex font-sans antialiased selection:bg-primary-fixed selection:text-on-primary-fixed">
       {/* Permanent Desktop Sidebar */}
       <div className="hidden lg:block">
         <Sidebar role={role} alertCount={activeAlertCount} />
@@ -35,12 +35,12 @@ export const AppShell: React.FC = () => {
           <PageHeader />
         </div>
 
-        {/* Content Container with generous margins and responsive padding */}
-        <main className="flex-1 w-full max-w-7xl mx-auto px-4 py-5 sm:px-6 sm:py-7 lg:px-8 lg:py-8 pb-24 lg:pb-12">
+        {/* Content Container */}
+        <main className="flex-1 w-full max-w-7xl mx-auto px-4 py-5 sm:px-6 sm:py-7 lg:px-8 lg:py-8 pb-28 lg:pb-12">
           <Outlet />
         </main>
 
-        {/* Mobile Bottom Navigation */}
+        {/* Mobile Floating Bottom Navigation */}
         <div className="lg:hidden">
           <BottomNavigation role={role} alertCount={activeAlertCount} />
         </div>
